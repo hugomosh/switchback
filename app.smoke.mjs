@@ -189,7 +189,9 @@ await goto('#/patterns');
   const known = $$('.matrix .mc:not(:disabled)');
   assert.ok(known.length >= 50, 'the cycle results are plotted');
   assert.ok($$('.matrix .mc.ok').length >= 1, 'at least one route is shown as found');
-  assert.ok($$('.matrix .mc.no').length >= 1, 'and failures are shown too');
+  assert.ok($$('.matrix .mc.proven').length >= 104, 'the impossible pairs are marked');
+  assert.equal($$('.matrix .mc.ok').length + $$('.matrix .mc.no').length + $$('.matrix .mc.proven').length,
+    53 * 52, 'every pair other than the diagonal is either routed, unsolved or impossible');
   assert.ok($$('.edge-list .edge-row').length >= 50, 'every stored edge is listed');
 
   // open a solved edge and step through it

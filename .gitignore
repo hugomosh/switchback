@@ -7,3 +7,6 @@ switchback.html
 # Scratch output from the booklet extraction.
 tools/pages/
 tools/alt/
+
+# Compiled occupancy tools.
+occupancy/build/
