@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Switch Back — engine harness</title>
+<style>
+  :root {
+    --col: 35px;
+    --gap: 0px;                 /* space between rows */
+    --marble: 70;               /* marble width, as a percentage of a cell */
+    --well-radius: 0px;
+    --bar-radius: 5px;
+    --well-inset: 0.2;          /* how deep the wells look */
+    --bar-lift: 0.1;            /* how far the bars sit off the tray */
+    --tray: #9fa5a5;
+    --tray-edge: #7d8383;
+    --bar: #f4f4f1;
+    --bar-edge: #d3d4cf;
+    --well: #61696a;
+    --shelter: #5a6567;   /* a blocked well: barely distinguishable on purpose */
+    --gate: #17a89c;
+    color-scheme: light dark;
+    --page: #eceef0;
+    --surface: #ffffff;
+    --ink: #1c1e20;
+    --ink-soft: #5e6468;
+    --line: #c9ced2;
+    --marble-1: #b3a5da;
+    --marble-1-edge: #8d7dbb;
+    --marble-2: #66c6ba;
+    --marble-2-edge: #40a094;
+    --wrong: #d4553f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #131518;
+      --surface: #1e2226;
+      --ink: #eceff1;
+      --ink-soft: #b3bbc1;
+      --line: #363c41;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 56px;
+    background: var(--page); color: var(--ink);
+    font: 15px/1.5 "Inter", "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .shell { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font-size: 19px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  h1 span { font-weight: 400; color: var(--ink-soft); }
+  h3 { font-size: 15px; font-weight: 600; margin: 0; }
+
+  nav { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+  nav button {
+    padding: 9px 13px; background: none; border: 0; font: inherit; font-size: 14px;
+    color: var(--ink-soft); cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  nav button[aria-current="page"] { color: var(--ink); border-bottom-color: var(--gate); }
+  nav button:focus-visible { outline: 2px solid var(--gate); outline-offset: -2px; }
+
+  .view { display: flex; flex-direction: column; gap: 14px; }
+
+  /* ---- board ---- */
+  .board { display: flex; gap: 10px; align-items: flex-start; }
+  /* Laid out on the same geometry as the rows, so button n lines up with row n. */
+  .sliders {
+    display: flex; flex-direction: column;
+    gap: var(--gap);
+    padding-top: calc(var(--col) * 0.21);   /* the tray's border plus its padding */
+  }
+  .slider-btn {
+    height: var(--col); width: 42px;
+    border: 1px solid var(--line); border-radius: 5px;
+    background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 12px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px;
+  }
+  .slider-btn[data-shift="1"] { background: var(--tray); color: #fff; border-color: var(--tray); }
+  .slider-btn:hover { border-color: var(--ink-soft); }
+  .slider-btn:focus-visible { outline: 2px solid var(--gate); outline-offset: 2px; }
+
+  .tray {
+    overflow: hidden;
+    background: var(--tray);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25);
+    border: calc(var(--col) * 0.07) solid var(--tray-edge);
+    border-radius: calc(var(--col) * 0.24);
+    padding: calc(var(--col) * 0.14);
+  }
+  .row { position: relative; height: var(--col); }
+  .frame { position: absolute; inset: 0; display: grid; }
+  .frame i { border-radius: 10%; margin: 4%; background: rgba(0,0,0,0.13); }
+  /* White slider bar, square wells punched through it — as on the tray. */
+  /* The bar fills its row completely. Anything less leaves a sliver between
+     rows that reads as a gap even when the row gap is zero. */
+  .bar {
+    position: absolute; top: 0; height: 100%;
+    background: var(--bar);
+    border-radius: var(--bar-radius);
+    box-shadow: 0 1px 2px rgba(0,0,0,var(--bar-lift)), inset 0 -1px 0 var(--bar-edge);
+    display: grid; align-items: stretch;
+  }
+  /* Wells butt straight up against the bar material — no gap, no outline. */
+  .hole {
+    width: 100%; height: 100%;
+    border-radius: var(--well-radius);
+    background: var(--well);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,var(--well-inset));
+  }
+
+  /* A sheltered marble is one no tilt can move. That is a property of the well,
+     not of the marble in it, so the well is what changes colour. */
+  .hole.shelter { background: var(--shelter); }
+
+  /* A marble floats to the middle of its well rather than settling on a floor.
+     The flat colour is set separately from the gradient layers, so the marble
+     still renders if a browser cannot parse one of them. */
+  .marble {
+    width: calc(var(--marble) * 1%); height: calc(var(--marble) * 1%);
+    margin: calc((100% - var(--marble) * 1%) / 2);
+    border-radius: 50%;
+    background: var(--tone);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .marble.m1 { --tone: var(--marble-1); --tone-edge: var(--marble-1-edge); }
+  .marble.m2 { --tone: var(--marble-2); --tone-edge: var(--marble-2-edge); }
+  /* The ring is reserved for one meaning: this marble is not where the pattern
+     wants it. Shelter is shown by the well instead. */
+  .marble.wrong { outline: 2px solid var(--wrong); outline-offset: 1px; }
+  /* Look presets. Switched live from the play view so they can be compared. */
+  body[data-look="tray"]   { --gap: 0px; }
+  body[data-look="spaced"] { --gap: calc(var(--col) * 0.26); }
+  
+
+  body[data-look="ink"] {
+    --shelter: #1f2d2e;
+    --tray: #3b3f41; --tray-edge: #232627; --bar: #6b7174; --bar-edge: #565c5f;
+    --well: #24282a;
+  }
+  body[data-look="ink"] .marble { box-shadow: none; }
+  body[data-look="ink"] .hole { box-shadow: inset 0 1px 2px rgba(0,0,0,0.6); }
+
+  body[data-look="paper"] {
+    --shelter: #86877e;
+    --tray: #d9d7ce; --tray-edge: #b9b7ad; --bar: #ffffff; --bar-edge: #e2e0d6;
+    --well: #8d8b82;
+  }
+  body[data-look="paper"] .bar { box-shadow: 0 1px 0 var(--bar-edge); }
+  body[data-look="paper"] .hole { box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
+
+  body[data-palette="1998"] {
+    --marble-1: #f2994a;
+    --marble-1-edge: #c96f24;
+    --marble-2: #6fbf73;
+    --marble-2-edge: #3f8f43;
+  }
+  .hole.m1 { background: var(--marble-1); border: 1px solid var(--marble-1-edge); box-shadow: none; }
+  .hole.m2 { background: var(--marble-2); border: 1px solid var(--marble-2-edge); box-shadow: none; }
+  .hole.wrong   { outline: 2px solid var(--wrong); outline-offset: 2px; }
+  .gates { height: var(--gap); display: grid; align-items: center; }
+  .gates b {
+    width: calc(var(--col) * 0.10); height: 100%;
+    margin: 0 auto; border-radius: 2px; background: var(--gate);
+  }
+  .no-gates .gates { height: 0; }
+
+  /* ---- controls ---- */
+  .tilts { display: flex; gap: 8px; }
+  .tilts button { color: var(--ink); }
+  .tilts button, button.primary {
+    flex: 1; padding: 11px 8px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); font: inherit; color: var(--ink); cursor: pointer;
+  }
+  button.primary { flex: none; align-self: flex-start; padding: 10px 18px; }
+  .tilts button:hover, button.primary:hover { border-color: var(--ink-soft); }
+  button:focus-visible { outline: 2px solid var(--gate); outline-offset: 2px; }
+
+  .minor { display: flex; gap: 6px; flex-wrap: wrap; }
+  .minor button {
+    padding: 7px 11px; border: 1px solid var(--line); border-radius: 6px;
+    background: transparent; font: inherit; font-size: 13px; color: var(--ink-soft); cursor: pointer;
+  }
+  .minor button.on { background: var(--tray); border-color: var(--tray); color: #fff; }
+  .minor.danger { margin-top: 2px; }
+  .minor button.warn { color: #b03a26; border-color: #e0b4aa; background: #fdf4f2; }
+  .minor button:disabled { opacity: 0.4; cursor: default; }
+
+  .note { color: var(--ink-soft); font-size: 13px; margin: 0; }
+
+  .readout {
+    border-top: 1px solid var(--line); padding-top: 13px;
+    display: flex; flex-direction: column; gap: 8px; font-size: 14px;
+  }
+  .readout dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; }
+  .readout dt { color: var(--ink-soft); }
+  .readout dd { margin: 0; color: var(--ink); font-weight: 500; }
+
+  .code { display: flex; gap: 8px; }
+  .code input {
+    flex: 1; min-width: 0; padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 6px;
+    font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+    background: var(--surface); color: var(--ink);
+  }
+  .code button {
+    padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .err { color: #c0392b; font-size: 13px; }
+
+  /* ---- patterns ---- */
+  /* Two to a row, the way the booklet prints them. */
+  .patterns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .pattern {
+    position: relative; display: flex; flex-direction: column; gap: 6px; align-items: center;
+    padding: 8px 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+  }
+  .pattern.chosen { border-color: var(--gate); box-shadow: inset 0 0 0 1px var(--gate); }
+  .pattern .number {
+    position: absolute; top: 6px; left: 6px;
+    min-width: 22px; padding: 1px 6px; border-radius: 10px;
+    background: var(--tray); color: #fff;
+    font-size: 12px; font-weight: 700; text-align: center; line-height: 18px;
+  }
+  .pattern-meta { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; }
+  .pattern-meta .note { font-size: 11px; }
+  .pattern-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+  .pattern-meta button.strong { background: var(--tray); border-color: var(--tray); color: #fff; }
+  .pattern-meta button {
+    padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: transparent; font: inherit; font-size: 12px; cursor: pointer;
+  }
+
+  .target-peek { display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+                 padding-top: 10px; border-top: 1px solid var(--line); }
+  .target-peek .note { margin: 0; }
+  .filter { display: flex; gap: 8px; }
+  .filter input {
+    flex: 1; min-width: 0; padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 6px;
+    font: 13px/1.4 inherit; background: var(--surface); color: var(--ink);
+  }
+
+  /* ---- matrix ---- */
+  .matrix { display: grid; gap: 1px; --mcell: 5px; width: max-content; padding: 4px;
+            background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  .mc { width: var(--mcell); height: var(--mcell); padding: 0; border: 0;
+        background: #eef0f1; border-radius: 1px; cursor: pointer; }
+  .mc:disabled { cursor: default; }
+  .mc.self { background: #dadfe1; }
+  .mc.ok { background: #2e9b86; }
+  .mc.ok.hand { background: #6a4fb0; }
+  .mc.no { background: #d4553f; }
+  .mc.proven { background: #2a2d30; }
+  .mc.picked { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); }
+  .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+  .legend-item .mc { --mcell: 10px; display: inline-block; cursor: default; }
+  .edge-detail { display: flex; flex-direction: column; gap: 8px;
+                 padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  .edge-list { display: flex; flex-direction: column; border: 1px solid var(--line);
+               border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .edge-row { display: flex; justify-content: space-between; padding: 8px 12px;
+              border: 0; border-top: 1px solid var(--line); background: none;
+              font: inherit; font-size: 13px; text-align: left; cursor: pointer; color: var(--ink); }
+  .edge-row:first-child { border-top: 0; }
+  .edge-row.picked { background: #f1f4f5; }
+  .edge-ok { color: #1f7a68; }
+  .edge-no { color: #b03a26; }
+  .edge-proven { color: #2a2d30; font-weight: 600; }
+  .edge-detail .minor button.strong { background: var(--tray); border-color: var(--tray); color: #fff; }
+
+  /* ---- analysis ---- */
+  .plan { display: flex; flex-direction: column; gap: 8px; }
+  .plan ol {
+    margin: 0; padding: 0 0 0 26px; max-height: 210px; overflow-y: auto;
+    font-size: 13px; color: var(--ink-secondary, var(--ink-soft));
+  }
+  .plan li { padding: 1px 0; }
+  .plan li.now { color: var(--ink); font-weight: 500; }
+  .picker { display: flex; gap: 10px; flex-wrap: wrap; }
+  .picker label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--ink-soft); }
+  .picker select {
+    padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px;
+    font: inherit; font-size: 14px; background: var(--surface); color: var(--ink);
+  }
+  .fields { display: flex; gap: 10px; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--ink-soft); }
+  .field input {
+    width: 72px; padding: 6px 8px; border: 1px solid var(--line);
+    border-radius: 6px; font: inherit; background: var(--surface); color: var(--ink);
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <h1>Switch Back <span>— engine harness</span></h1>
+    <nav id="nav"></nav>
+    <main id="view"></main>
+  </div>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

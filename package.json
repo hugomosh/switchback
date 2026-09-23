@@ -1,0 +1,21 @@
+{
+  "name": "switchback",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Switch Back (Binary Arts #6400, 1993) \u2014 faithful recreation and reachability analysis",
+  "scripts": {
+    "test": "node --test *.test.mjs && node app.smoke.mjs && node motion.smoke.mjs",
+    "build": "node build.mjs",
+    "verify": "node bundle.smoke.mjs",
+    "check": "npm test && npm run build && npm run verify",
+    "serve": "python3 -m http.server 8000",
+    "analyze": "node analyze.cli.mjs",
+    "sweep": "node sweep.mjs --for 250",
+    "matrix": "node gen_solutions.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.0.1"
+  }
+}

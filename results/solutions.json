@@ -1,0 +1,510 @@
+{
+ "version": 1,
+ "solver": {
+  "beamWidth": 900,
+  "maxStates": 250000,
+  "restarts": 2,
+  "maxDepth": 400,
+  "perimeter": {
+   "depth": 9,
+   "maxStates": 200000
+  }
+ },
+ "edges": {
+  "0>1": {
+   "from": 0,
+   "to": 1,
+   "solved": true,
+   "length": 260,
+   "rawLength": 397,
+   "moves": "6U47D45D3D67U4D42D3U326D2768U672D674D768U8642D5U52D36547U657D6D4D5D45D35435D456U647U73U3D5456U53D3D345U4D324U451D2U2U4365D435U321D142D546U635U432U52D216U53D54U45352D2563D34D2354U3D435U23U4U43485678U875U78U674D67U67D767D567U54D67D6D5D67D8767467U45D54U45D54U45D5",
+   "source": "hand",
+   "note": "the opening board to pattern 1"
+  },
+  "1>2": {
+   "from": 1,
+   "to": 2,
+   "solved": false,
+   "impossible": true,
+   "source": "proof",
+   "reason": "no tilt can produce pattern 2; only its own slider settings reach it"
+  },
+  "2>3": {
+   "from": 2,
+   "to": 3,
+   "solved": false,
+   "best": 8,
+   "explored": 750005,
+   "seconds": 16.2,
+   "source": "solver"
+  },
+  "3>4": {
+   "from": 3,
+   "to": 4,
+   "solved": false,
+   "best": 4,
+   "explored": 500003,
+   "seconds": 10.3,
+   "source": "solver"
+  },
+  "4>5": {
+   "from": 4,
+   "to": 5,
+   "solved": false,
+   "impossible": true,
+   "source": "proof",
+   "reason": "no tilt can produce pattern 5; only its own slider settings reach it"
+  },
+  "5>6": {
+   "from": 5,
+   "to": 6,
+   "solved": false,
+   "best": 6,
+   "explored": 500009,
+   "seconds": 9.5,
+   "source": "solver"
+  },
+  "6>7": {
+   "from": 6,
+   "to": 7,
+   "solved": false,
+   "best": 2,
+   "explored": 750009,
+   "seconds": 14.9,
+   "source": "solver"
+  },
+  "7>8": {
+   "from": 7,
+   "to": 8,
+   "solved": false,
+   "best": 2,
+   "explored": 750002,
+   "seconds": 14.4,
+   "source": "solver"
+  },
+  "8>9": {
+   "from": 8,
+   "to": 9,
+   "solved": false,
+   "best": 3,
+   "explored": 750003,
+   "seconds": 15.3,
+   "source": "solver"
+  },
+  "9>10": {
+   "from": 9,
+   "to": 10,
+   "solved": false,
+   "best": 2,
+   "explored": 750002,
+   "seconds": 14.7,
+   "source": "solver"
+  },
+  "10>11": {
+   "from": 10,
+   "to": 11,
+   "solved": false,
+   "best": 8,
+   "explored": 500006,
+   "seconds": 8.3,
+   "source": "solver"
+  },
+  "11>12": {
+   "from": 11,
+   "to": 12,
+   "solved": false,
+   "best": 6,
+   "explored": 500001,
+   "seconds": 10,
+   "source": "solver"
+  },
+  "12>13": {
+   "from": 12,
+   "to": 13,
+   "solved": true,
+   "length": 222,
+   "rawLength": 222,
+   "moves": "14U5D436D64D136U4U5U67D768U87D78U87D74D463D312U3U56U54D4D1234U467D768U6835D3214U1246U58D6834D41D3462U48U268U12D21U2U253D527U3U27156U54U4D5D563D32D23U34U43D4U3D42D23U32D24U3U3412D123U356U5D64D3D36D46132U31265U54D435U75U76D3",
+   "explored": 747863,
+   "seconds": 20.7,
+   "source": "solver"
+  },
+  "13>14": {
+   "from": 13,
+   "to": 14,
+   "solved": false,
+   "best": 8,
+   "explored": 750004,
+   "seconds": 17.1,
+   "source": "solver"
+  },
+  "14>15": {
+   "from": 14,
+   "to": 15,
+   "solved": false,
+   "best": 6,
+   "explored": 750005,
+   "seconds": 15.3,
+   "source": "solver"
+  },
+  "15>16": {
+   "from": 15,
+   "to": 16,
+   "solved": false,
+   "best": 2,
+   "explored": 500010,
+   "seconds": 10.1,
+   "source": "solver"
+  },
+  "16>17": {
+   "from": 16,
+   "to": 17,
+   "solved": false,
+   "best": 11,
+   "explored": 500003,
+   "seconds": 9.5,
+   "source": "solver"
+  },
+  "17>18": {
+   "from": 17,
+   "to": 18,
+   "solved": false,
+   "best": 2,
+   "explored": 750005,
+   "seconds": 15,
+   "source": "solver"
+  },
+  "18>19": {
+   "from": 18,
+   "to": 19,
+   "solved": false,
+   "best": 7,
+   "explored": 500001,
+   "seconds": 9,
+   "source": "solver"
+  },
+  "19>20": {
+   "from": 19,
+   "to": 20,
+   "solved": true,
+   "length": 173,
+   "moves": "357D524U4D2D35D54U75U512U5U68U287D7D6D5D3D1368U87D78U87D7D46123U34D43U4U123487U76D67U7U87D8U7U87D6D675U6U6D6D6578U76D65U6U87D7D631D5314U435U368U87D7D6D53D312U2U12D1U23D2U231",
+   "explored": 444298,
+   "seconds": 9.7,
+   "source": "solver"
+  },
+  "20>21": {
+   "from": 20,
+   "to": 21,
+   "solved": false,
+   "best": 2,
+   "explored": 750012,
+   "seconds": 15,
+   "source": "solver"
+  },
+  "21>22": {
+   "from": 21,
+   "to": 22,
+   "solved": false,
+   "best": 3,
+   "explored": 750006,
+   "seconds": 15.5,
+   "source": "solver"
+  },
+  "22>23": {
+   "from": 22,
+   "to": 23,
+   "solved": false,
+   "best": 4,
+   "explored": 750002,
+   "seconds": 15.1,
+   "source": "solver"
+  },
+  "23>24": {
+   "from": 23,
+   "to": 24,
+   "solved": false,
+   "best": 3,
+   "explored": 750003,
+   "seconds": 14.9,
+   "source": "solver"
+  },
+  "24>25": {
+   "from": 24,
+   "to": 25,
+   "solved": false,
+   "best": 6,
+   "explored": 500001,
+   "seconds": 9.2,
+   "source": "solver"
+  },
+  "25>26": {
+   "from": 25,
+   "to": 26,
+   "solved": false,
+   "best": 2,
+   "explored": 750005,
+   "seconds": 15.7,
+   "source": "solver"
+  },
+  "26>27": {
+   "from": 26,
+   "to": 27,
+   "solved": false,
+   "best": 2,
+   "explored": 750001,
+   "seconds": 15.6,
+   "source": "solver"
+  },
+  "27>28": {
+   "from": 27,
+   "to": 28,
+   "solved": false,
+   "best": 4,
+   "explored": 750001,
+   "seconds": 15,
+   "source": "solver"
+  },
+  "28>29": {
+   "from": 28,
+   "to": 29,
+   "solved": false,
+   "best": 2,
+   "explored": 750001,
+   "seconds": 15.6,
+   "source": "solver"
+  },
+  "29>30": {
+   "from": 29,
+   "to": 30,
+   "solved": false,
+   "best": 5,
+   "explored": 750004,
+   "seconds": 15.1,
+   "source": "solver"
+  },
+  "30>31": {
+   "from": 30,
+   "to": 31,
+   "solved": false,
+   "best": 2,
+   "explored": 500007,
+   "seconds": 9.2,
+   "source": "solver"
+  },
+  "31>32": {
+   "from": 31,
+   "to": 32,
+   "solved": false,
+   "best": 9,
+   "explored": 500002,
+   "seconds": 10.4,
+   "source": "solver"
+  },
+  "32>33": {
+   "from": 32,
+   "to": 33,
+   "solved": false,
+   "best": 2,
+   "explored": 500000,
+   "seconds": 10.5,
+   "source": "solver"
+  },
+  "33>34": {
+   "from": 33,
+   "to": 34,
+   "solved": false,
+   "best": 6,
+   "explored": 500001,
+   "seconds": 10,
+   "source": "solver"
+  },
+  "34>35": {
+   "from": 34,
+   "to": 35,
+   "solved": false,
+   "best": 2,
+   "explored": 750001,
+   "seconds": 14.1,
+   "source": "solver"
+  },
+  "35>36": {
+   "from": 35,
+   "to": 36,
+   "solved": false,
+   "best": 3,
+   "explored": 750004,
+   "seconds": 15,
+   "source": "solver"
+  },
+  "36>37": {
+   "from": 36,
+   "to": 37,
+   "solved": false,
+   "best": 2,
+   "explored": 750007,
+   "seconds": 13.9,
+   "source": "solver"
+  },
+  "37>38": {
+   "from": 37,
+   "to": 38,
+   "solved": false,
+   "best": 4,
+   "explored": 750005,
+   "seconds": 14.3,
+   "source": "solver"
+  },
+  "38>39": {
+   "from": 38,
+   "to": 39,
+   "solved": false,
+   "best": 10,
+   "explored": 500003,
+   "seconds": 10.2,
+   "source": "solver"
+  },
+  "39>40": {
+   "from": 39,
+   "to": 40,
+   "solved": false,
+   "best": 2,
+   "explored": 750001,
+   "seconds": 14.4,
+   "source": "solver"
+  },
+  "40>41": {
+   "from": 40,
+   "to": 41,
+   "solved": false,
+   "best": 2,
+   "explored": 750002,
+   "seconds": 15.4,
+   "source": "solver"
+  },
+  "41>42": {
+   "from": 41,
+   "to": 42,
+   "solved": false,
+   "best": 4,
+   "explored": 750002,
+   "seconds": 15.6,
+   "source": "solver"
+  },
+  "42>43": {
+   "from": 42,
+   "to": 43,
+   "solved": false,
+   "best": 2,
+   "explored": 750005,
+   "seconds": 15.5,
+   "source": "solver"
+  },
+  "43>44": {
+   "from": 43,
+   "to": 44,
+   "solved": false,
+   "best": 2,
+   "explored": 750001,
+   "seconds": 15.1,
+   "source": "solver"
+  },
+  "44>45": {
+   "from": 44,
+   "to": 45,
+   "solved": false,
+   "best": 2,
+   "explored": 750000,
+   "seconds": 15.9,
+   "source": "solver"
+  },
+  "45>46": {
+   "from": 45,
+   "to": 46,
+   "solved": true,
+   "length": 101,
+   "moves": "1U127D3D3D16U12674U45U58D86U7U678D87D78U846D4635U34D5D43U4U42D31D24D4235U34U124536D64D4D4U356U4U57U67",
+   "explored": 237338,
+   "seconds": 4.8,
+   "source": "solver"
+  },
+  "46>47": {
+   "from": 46,
+   "to": 47,
+   "solved": false,
+   "best": 4,
+   "explored": 750009,
+   "seconds": 15.4,
+   "source": "solver"
+  },
+  "47>48": {
+   "from": 47,
+   "to": 48,
+   "solved": false,
+   "best": 3,
+   "explored": 750008,
+   "seconds": 15.4,
+   "source": "solver"
+  },
+  "48>49": {
+   "from": 48,
+   "to": 49,
+   "solved": false,
+   "best": 5,
+   "explored": 750006,
+   "seconds": 14.3,
+   "source": "solver"
+  },
+  "49>50": {
+   "from": 49,
+   "to": 50,
+   "solved": true,
+   "length": 225,
+   "moves": "3U46U8U38D47D78U3U47U6785D35D42U3U4U45D3D251U2U256D6D54D43U4U157U346D78U8D6D54D43U4U67U6U34753U5D34D5D5D45U5467D45U53U7645D456U65D54U6D6435U56U623D1U32U12D21U2U12467U4765D4D46U547D45U53U6754D5D4D46D4365U6U12U26513D2D21U1D2D23",
+   "explored": 635204,
+   "seconds": 12.1,
+   "source": "solver"
+  },
+  "50>51": {
+   "from": 50,
+   "to": 51,
+   "solved": false,
+   "best": 7,
+   "explored": 750002,
+   "seconds": 15.4,
+   "source": "solver"
+  },
+  "51>52": {
+   "from": 51,
+   "to": 52,
+   "solved": false,
+   "best": 2,
+   "explored": 500000,
+   "seconds": 10.2,
+   "source": "solver"
+  },
+  "52>0": {
+   "from": 52,
+   "to": 0,
+   "solved": false,
+   "best": 10,
+   "explored": 500003,
+   "seconds": 8.7,
+   "source": "solver"
+  },
+  "0>4": {
+   "from": 0,
+   "to": 4,
+   "solved": true,
+   "length": 495,
+   "rawLength": 741,
+   "moves": "1312D21243U32D2545D45U7U853U435U57D87U87D8545767D3D38D4642U24U32D13D1D4313U2U23541D14D4U587U76D8D5D4656U87457U564321D45312U45467D767DU5U58D7D865D6758U765D675785D6U5U454D4D4567U8786567D54DU465U5764321D432175U7581U2U3213654U4U434U3578764D34U43D421D218D87U78D7D57U6787656D5D563U37D76D656U54321D43215U45321D643217854U45786463U43678U768676574D547D76U67D76U67D76D56U6D6D4U564U64524D2U6543216D56543217D674321D4536U65215U56D6878U75U5687D6784321D4D3D1234U2134212D12132U5678U5687323U34U45678D87653D4U32D24",
+   "source": "hand",
+   "note": "the opening board to pattern 4"
+  }
+ },
+ "sealed": [
+  2,
+  5
+ ]
+}

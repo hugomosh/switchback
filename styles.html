@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Switch Back — board style sandbox</title>
+<style>
+  :root {
+    --col: 35px;
+    --gap: 0px;
+    --marble: 70;      /* % of a cell */
+    --well-radius: 0px;
+    --bar-radius: 5px;
+    --well-inset: 0.2;
+    --bar-lift: 0.1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 18px 14px 40px;
+    background: #15171a; color: #e7eaec;
+    font: 14px/1.5 "Inter", "Segoe UI", system-ui, sans-serif;
+  }
+  h1 { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
+  p.lead { margin: 0 0 16px; color: #98a0a6; font-size: 13px; }
+
+  .controls {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px 16px; padding: 12px; margin-bottom: 18px;
+    background: #1e2226; border: 1px solid #2c3136; border-radius: 8px;
+  }
+  .controls label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #98a0a6; }
+  .controls input[type=range] { width: 100%; }
+  .controls .value { color: #e7eaec; font: 12px ui-monospace, Menlo, monospace; }
+
+  .variants { display: flex; flex-direction: column; gap: 18px; }
+  .variant { border: 1px solid #2c3136; border-radius: 8px; padding: 12px; background: #1a1e21; }
+  .variant h2 { font-size: 13px; font-weight: 600; margin: 0 0 2px; }
+  .variant p { margin: 0 0 10px; font-size: 12px; color: #98a0a6; }
+  .stage { overflow-x: auto; }
+
+  /* ---- board, drawn from the same geometry the app uses ---- */
+  .board { display: flex; gap: 8px; align-items: flex-start; width: max-content; }
+  .sliders { display: flex; flex-direction: column; gap: var(--gap); padding-top: calc(var(--col) * 0.21); }
+  .slider-btn {
+    height: var(--col); width: 34px;
+    border: 1px solid #c9ced2; border-radius: 5px;
+    background: #fff; color: #5e6468; font: inherit; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tray {
+    overflow: hidden;
+    background: var(--tray);
+    border: calc(var(--col) * 0.07) solid var(--tray-edge);
+    border-radius: calc(var(--col) * 0.24);
+    padding: calc(var(--col) * 0.14);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .row { position: relative; height: var(--col); width: calc(9 * var(--col)); }
+  .frame { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(9, var(--col)); }
+  .frame i { border-radius: 10%; margin: 4%; background: rgba(0,0,0,0.13); }
+  .bar {
+    position: absolute; top: 0; height: 100%;
+    width: calc(15 * var(--col));
+    display: grid; grid-template-columns: repeat(15, var(--col)); align-items: stretch;
+    background: var(--bar); border-radius: var(--bar-radius);
+    box-shadow: 0 1px 2px rgba(0,0,0,var(--bar-lift)), inset 0 -1px 0 var(--bar-edge);
+  }
+  .hole {
+    width: 100%; height: 100%;
+    border-radius: var(--well-radius);
+    background: var(--well);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,var(--well-inset));
+  }
+  .marble {
+    width: calc(var(--marble) * 1%); height: calc(var(--marble) * 1%);
+    margin: calc((100% - var(--marble) * 1%) / 2);
+    border-radius: 50%;
+    background: var(--tone);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .m1 { --tone: var(--marble-1); }
+  .m2 { --tone: var(--marble-2); }
+  .gates { height: var(--gap); }
+
+  /* ---- the variants ---- */
+  .tray-look   { --tray: #9fa5a5; --tray-edge: #7d8383; --bar: #f4f4f1; --bar-edge: #d3d4cf; --well: #61696a; --marble-1: #b3a5da; --marble-2: #66c6ba; }
+  .ink-look    { --tray: #3b3f41; --tray-edge: #232627; --bar: #6b7174; --bar-edge: #565c5f; --well: #24282a; --marble-1: #b3a5da; --marble-2: #66c6ba; }
+  .paper-look  { --tray: #d9d7ce; --tray-edge: #b9b7ad; --bar: #ffffff; --bar-edge: #e2e0d6; --well: #8d8b82; --marble-1: #a294cf; --marble-2: #56b6aa; }
+  .steel-look  { --tray: #7b8386; --tray-edge: #5b6265; --bar: #e9ecec; --bar-edge: #c2c7c7; --well: #3f4547; --marble-1: #9b8ccb; --marble-2: #4fb5a8; }
+  .warm-look   { --tray: #b0a79b; --tray-edge: #8e857a; --bar: #faf7f0; --bar-edge: #ded8cb; --well: #6a635a; --marble-1: #f0a256; --marble-2: #79c07c; }
+
+  .snippet {
+    margin-top: 18px; padding: 12px; background: #1e2226;
+    border: 1px solid #2c3136; border-radius: 8px;
+    font: 12px/1.6 ui-monospace, Menlo, monospace; color: #cfd6da;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+  <h1>Board style sandbox</h1>
+  <p class="lead">
+    Same board, five treatments. The sliders change all of them at once so the
+    comparison stays fair. This page only draws — it has no engine in it and no
+    rules; it exists to settle the look, then the numbers go back into the app.
+  </p>
+
+  <div class="controls" id="controls"></div>
+  <div class="variants" id="variants"></div>
+  <div class="snippet" id="snippet"></div>
+
+<script>
+// A fixed board with marbles and voids scattered mid-row, so wells are visible.
+const CELLS = [
+  1,1,1,1,  2,2,2,2,  1,1,0,1,  0,2,2,0,
+  2,0,2,2,  1,1,1,0,  2,2,0,2,  1,0,1,1,
+];
+const SHIFTS = [0,1,0,0,1,0,1,0];
+const LEAD = 3, SLOTS = 4, ROWS = 8, BAR = 2 * SLOTS + 2 * LEAD + 1;
+const columnOf = (row, slot, shift) => 2 * slot + (row % 2) + shift;
+
+const VARIANTS = [
+  ['tray-look',  'Tray',   'Pale frame, white bars, dark wells — the tray in the photo.'],
+  ['steel-look', 'Steel',  'Cooler and higher contrast; wells read more strongly.'],
+  ['ink-look',   'Ink',    'Dark board, closest to the printed patterns.'],
+  ['paper-look', 'Paper',  'Pale and low contrast, like the booklet page.'],
+  ['warm-look',  'Warm',   'Warm grey frame with the 1998 orange and green marbles.'],
+];
+
+const CONTROLS = [
+  ['--col',        'Cell size',    22, 52, 35, 'px'],
+  ['--gap',        'Row gap',       0, 14,  0, 'px'],
+  ['--marble',     'Marble size',  50, 96, 70, ''],
+  ['--well-radius','Well corner',   0, 14,  0, 'px'],
+  ['--bar-radius', 'Bar corner',    0, 14,  5, 'px'],
+  ['--well-inset', 'Well depth',    0,100, 20, '%'],
+  ['--bar-lift',   'Bar shadow',    0,100, 10, '%'],
+];
+
+function board(themeClass) {
+  const wrap = document.createElement('div');
+  wrap.className = 'board ' + themeClass;
+
+  const sliders = document.createElement('div');
+  sliders.className = 'sliders';
+  for (let row = 0; row < ROWS; row++) {
+    const b = document.createElement('div');
+    b.className = 'slider-btn';
+    b.textContent = (row + 1) + (SHIFTS[row] ? ' \u25b8' : ' \u25c2');
+    sliders.appendChild(b);
+  }
+  wrap.appendChild(sliders);
+
+  const tray = document.createElement('div');
+  tray.className = 'tray';
+  for (let row = 0; row < ROWS; row++) {
+    const r = document.createElement('div');
+    r.className = 'row';
+    const frame = document.createElement('div');
+    frame.className = 'frame';
+    for (let c = 0; c < 9; c++) frame.appendChild(document.createElement('i'));
+    r.appendChild(frame);
+
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.transform =
+      `translateX(calc(${columnOf(row, 0, SHIFTS[row]) - LEAD} * var(--col)))`;
+    for (let c = 0; c < BAR; c++) {
+      const cell = document.createElement('div');
+      if (c % 2 === LEAD % 2 && c >= LEAD && c < LEAD + 2 * SLOTS) {
+        const slot = (c - LEAD) / 2;
+        const value = CELLS[row * SLOTS + slot];
+        cell.className = 'hole';
+        if (value) {
+          const marble = document.createElement('div');
+          marble.className = 'marble m' + value;
+          cell.appendChild(marble);
+        }
+      }
+      bar.appendChild(cell);
+    }
+    r.appendChild(bar);
+    tray.appendChild(r);
+    if (row < ROWS - 1) {
+      const gates = document.createElement('div');
+      gates.className = 'gates';
+      tray.appendChild(gates);
+    }
+  }
+  wrap.appendChild(tray);
+  return wrap;
+}
+
+function paintVariants() {
+  const host = document.getElementById('variants');
+  host.replaceChildren();
+  for (const [cls, name, note] of VARIANTS) {
+    const card = document.createElement('div');
+    card.className = 'variant';
+    const h = document.createElement('h2'); h.textContent = name;
+    const p = document.createElement('p'); p.textContent = note;
+    const stage = document.createElement('div'); stage.className = 'stage';
+    stage.appendChild(board(cls));
+    card.append(h, p, stage);
+    host.appendChild(card);
+  }
+}
+
+function apply() {
+  const parts = [];
+  for (const [name, label, min, max, , unit] of CONTROLS) {
+    const input = document.getElementById('c' + name);
+    let value = input.value;
+    let css = unit === '%' ? (value / 100) : unit === 'px' ? value + 'px' : value;
+    document.documentElement.style.setProperty(name, String(css));
+    input.parentElement.querySelector('.value').textContent = value + (unit || '');
+    parts.push(`  ${name}: ${css};`);
+  }
+  document.getElementById('snippet').textContent =
+    'Current values — paste these back and I will fold them into the app:\n\n:root {\n'
+    + parts.join('\n') + '\n}';
+}
+
+function buildControls() {
+  const host = document.getElementById('controls');
+  for (const [name, label, min, max, start, unit] of CONTROLS) {
+    const wrap = document.createElement('label');
+    const title = document.createElement('span');
+    title.textContent = label;
+    const value = document.createElement('span');
+    value.className = 'value';
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.id = 'c' + name;
+    input.min = min; input.max = max; input.value = start;
+    input.addEventListener('input', apply);
+    wrap.append(title, input, value);
+    host.appendChild(wrap);
+  }
+}
+
+buildControls();
+paintVariants();
+apply();
+</script>
+</body>
+</html>

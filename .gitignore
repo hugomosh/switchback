@@ -1,0 +1,9 @@
+node_modules/
+dist/
+
+# Built by `npm run build` from the modules — never edit or commit.
+switchback.html
+
+# Scratch output from the booklet extraction.
+tools/pages/
+tools/alt/
