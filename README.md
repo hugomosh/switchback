@@ -190,6 +190,10 @@ before moving on — not preserve throughout, since a real solution does break t
 
 The route in `routes.mjs` is the benchmark. A search that finds it is a search that works.
 
+The plateau was eventually beaten by changing the unit of search rather than
+the heuristic: route the hole pattern first, then fix colours with loops that
+return to it. See *The full board, settled*.
+
 ## The solution matrix
 
 `results/solutions.json` holds every pattern-to-pattern result found so far,
@@ -210,7 +214,8 @@ removes is provably wasted. The hand-played route to pattern 4 went from 741
 moves to 495 that way.
 
 **A failed edge is not an impossible edge.** It means this search, at this
-budget, stopped short. The first cycle solved 3 of 53 edges; 21 of the failures
+budget, stopped short. (The colour-orbit solver below has since filled every
+cell; this paragraph describes the beam search.) The first cycle solved 3 of 53 edges; 21 of the failures
 stopped exactly one marble from done. Pattern 0 to 4 is unsolved by the search
 and solved by hand.
 
@@ -369,7 +374,12 @@ Each target takes well under a minute. Every route is replayed through the JS
 engine before it is stored, so the C code is never trusted on its own, and a
 route only replaces an earlier one if it is shorter.
 
-ROUTE_STATS
+The whole matrix is now filled: **2,652 routes and 104 proved impossible, with
+nothing unknown.** Routes run from 12 to 488 moves, median 147 — shorter than
+anything found before, including the hand-played ones (the opening board to
+pattern 1 went from 260 moves to 86, and to pattern 4 from 495 to 163). The
+edges the beam search could never finish, such as 9 to 10, are ordinary routes
+of around 150 moves.
 
 ## Sharing a game
 
