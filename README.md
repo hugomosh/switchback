@@ -57,6 +57,9 @@ player's only way to hold a marble still through a gravity resolution.
 | `occupancy/` | C tools: the exact hole-pattern graph, and the colour-orbit solver. |
 | `groupsweep.mjs` | Fills the matrix with the colour-orbit solver. |
 | `board.mjs` | Shared board renderer. |
+| `view-3d.mjs` | The 3D tray (three.js), in strict and free modes. |
+| `freeplay.mjs` | Continuous gravity for free mode; settles exactly where the engine does. |
+| `vendor/` | three.js, vendored as one ES module so there is still no build step. |
 | `app.mjs`, `view-*.mjs`, `store.mjs` | The routed app. |
 | `build.mjs` | Bundles the modules into `switchback.html`. |
 | `tools/` | Python that transcribed the booklet scan. |
@@ -380,6 +383,30 @@ anything found before, including the hand-played ones (the opening board to
 pattern 1 went from 260 moves to 86, and to pattern 4 from 495 to 163). The
 edges the beam search could never finish, such as 9 to 10, are ordinary routes
 of around 150 moves.
+
+## The 3D tray
+
+The 3D tab draws the physical 1993 tray with three.js, modelled on photos of it:
+the grey frame with its printed pattern bezels, the side pillars, eight light
+slider bars whose ribbed ends stick out of the open sides, and a smoked clear
+backing behind the holes. Drag to turn it, scroll or pinch to zoom, tap a bar to
+slide it. The first print on the frame is the current target.
+
+It has two modes:
+
+- **Strict — engine rules.** Every move goes through `engine.mjs` and onto the
+  same history as the Play tab, so undo, replay codes and targets carry over. A
+  tilt tips the tray and the marbles the engine moved fall along their columns.
+- **Free — real gravity.** `freeplay.mjs` replaces the engine's instant tilt
+  with continuous physics: hold the tray at any angle (slider, held arrow keys,
+  or the phone's own tilt), marbles accelerate, stack and can be stopped
+  halfway between rows, and a bar with a marble half in it will not slide. When
+  everything is at rest in holes, the position is an ordinary board again and
+  can be taken back into strict mode.
+
+`freeplay.test.mjs` checks the two agree: on hundreds of random boards and
+slider settings, a free-mode tilt left to settle lands exactly where the
+engine's tilt does.
 
 ## Sharing a game
 

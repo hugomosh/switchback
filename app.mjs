@@ -12,9 +12,11 @@ import * as patterns from './view-patterns.mjs';
 import * as analyze from './view-analyze.mjs';
 import * as solveView from './view-solve.mjs';
 import * as matrix from './view-matrix.mjs';
+import * as tray3d from './view-3d.mjs';
 
 const ROUTES = [
   { path: 'play', label: 'Play', view: play },
+  { path: '3d', label: '3D', view: tray3d },
   { path: 'patterns', label: 'Patterns', view: patterns },
   { path: 'solve', label: 'Solve', view: solveView },
   { path: 'matrix', label: 'Matrix', view: matrix },
@@ -98,6 +100,11 @@ function onHashChange() {
 
 document.addEventListener('keydown', (event) => {
   if (route.path === 'play') play.keydown(event);
+  if (route.path === '3d') tray3d.keydown(event);
+});
+// Free play in 3D tilts only while an arrow is held.
+document.addEventListener('keyup', (event) => {
+  if (route.path === '3d') tray3d.keyup(event);
 });
 
 window.addEventListener('hashchange', onHashChange);

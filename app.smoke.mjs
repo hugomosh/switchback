@@ -21,7 +21,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const goto = async (path) => {
   // Navigate the way a person does: tap the tab.
-  const label = { '#/play': 'Play', '#/patterns': 'Patterns', '#/solve': 'Solve', '#/analyze': 'Analysis' }[path];
+  const label = { '#/play': 'Play', '#/patterns': 'Patterns', '#/solve': 'Solve', '#/analyze': 'Analysis', '#/3d': '3D' }[path];
   const tab = $$('nav button').find((b) => b.textContent === label);
   if (!tab) throw new Error('no tab for ' + path);
   click(tab);
@@ -31,7 +31,7 @@ const goto = async (path) => {
 await import('./app.mjs');
 
 // --- shell -----------------------------------------------------------------
-assert.equal($$('nav button').length, 5, 'five routes in the nav');
+assert.equal($$('nav button').length, 6, 'six routes in the nav');
 assert.equal($('nav button[aria-current="page"]').textContent, 'Play', 'play is the default route');
 assert.equal($$('.row').length, 8);
 assert.equal($$('.hole').length, 32);
@@ -292,3 +292,31 @@ for (const well of sheltered) {
 assert.ok(/\.bar \{[^}]*top: 0; height: 100%/.test(sheet),
   'a bar short of its row height reads as a gap even at zero row gap');
 console.log('shelter and flush-row checks passed');
+
+// --- 3D tray: no WebGL in jsdom, so this checks the wiring and the fallback -
+{
+  await goto('#/play');
+  const movesBefore = $$('.readout dd')[0].textContent;
+  await goto('#/3d');
+  assert.equal($('nav button[aria-current="page"]').textContent, '3D');
+  assert.match($('.stage').textContent, /no WebGL/, 'the 3D tab explains why nothing is drawn');
+  assert.equal($$('.rows3d button').length, 8, 'one slide button per bar');
+  const tabButton = (label) => $$('.view3d button').find((b) => b.textContent === label);
+  const { board } = await import('./store.mjs');
+  const { tilt } = await import('./engine.mjs');
+  click($$('.rows3d button')[2]);                 // strict: slide bar 3 through the engine
+  await new Promise((r) => setTimeout(r, 0));
+  const tiltMoves = stateKey(tilt(board(), 'down')) === stateKey(board()) ? 0 : 1;
+  click(tabButton('Tilt down'));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(Number($$('.view3d .readout dd')[0].textContent), Number(movesBefore) + 1 + tiltMoves,
+    'strict moves land on the shared history');
+  click($$('.seg button')[1]);                    // free mode
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok($('.tilt3d input[type=range]'), 'free mode has a tilt control');
+  assert.match($('.free-status').textContent, /At rest/, 'a fresh free world starts at rest');
+  click($$('.seg button')[0]);
+  await new Promise((r) => setTimeout(r, 0));
+  await goto('#/play');                           // leaving the tab stops its frame loop
+  console.log('3D view checks passed');
+}
