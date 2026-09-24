@@ -31,11 +31,14 @@ const out = `/**
 
 /**
  * Patterns no other marble arrangement can reach. Proved by searching backwards:
- * their backward region is exactly their own 256 slider settings.
+ * their backward region is exactly their own 256 slider settings. Every other
+ * pair of patterns is solvable (occupancy/ and the README prove it).
  */
 export const SEALED = ${JSON.stringify(store.sealed ?? [])};
 
-export const SOLUTIONS = ${JSON.stringify(edges, null, 1)};
+export const SOLUTIONS = [
+${edges.map((e) => ' ' + JSON.stringify(e)).join(',\n')},
+];
 
 export const solutionFor = (from, to) =>
   SOLUTIONS.find((e) => e.from === from && e.to === to);

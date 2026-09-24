@@ -1,8 +1,9 @@
 /**
  * Matrix view — every pattern-to-pattern result found so far.
  *
- * Rows are the starting pattern, columns the target. Most of the 53 x 53
- * matrix is still blank; it is filled in by sweep.mjs a run at a time. The grid
+ * Rows are the starting pattern, columns the target. The matrix is settled:
+ * every pair is either routed (groupsweep.mjs, sweep.mjs, or by hand) or proved
+ * impossible because its target is sealed; see the README. The grid
  * is the overview, and the list underneath is how you open an edge on a phone,
  * since single cells are too small to tap reliably.
  */
@@ -130,8 +131,9 @@ export function render(rerender) {
   const total = ALL_PATTERNS.length * (ALL_PATTERNS.length - 1);
 
   view.appendChild(el('p', 'note',
-    `${solved} routes found, ${stuck} not found yet. Patterns ${SEALED.join(' and ')} are sealed — `
-    + `nothing else can reach them — which settles ${sealedCells} pairs as impossible. `
+    `${solved} routes found` + (stuck ? `, ${stuck} not found yet` : '') + '. '
+    + `Patterns ${SEALED.join(' and ')} are sealed — nothing else can reach them — `
+    + `which settles ${sealedCells} of the ${total} pairs as impossible; every other pair is solvable. `
     + 'Rows are the starting pattern, columns the target.'));
 
   const legend = el('div', 'legend');

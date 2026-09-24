@@ -170,4 +170,4 @@ async function main() {
   }
 }
 
-if (process.argv[1] && process.argv[1].endsWith('sweep.mjs')) main();
+if (process.argv[1] && path.basename(process.argv[1]) === 'sweep.mjs') main();

@@ -54,6 +54,8 @@ player's only way to hold a marble still through a gravity resolution.
 | `booklet.mjs` | **Generated.** The 52 booklet challenges. |
 | `solver.mjs` | Beam search from one board to another. |
 | `analysis.mjs` | Reachability search and permutation structure. |
+| `occupancy/` | C tools: the exact hole-pattern graph, and the colour-orbit solver. |
+| `groupsweep.mjs` | Fills the matrix with the colour-orbit solver. |
 | `board.mjs` | Shared board renderer. |
 | `app.mjs`, `view-*.mjs`, `store.mjs` | The routed app. |
 | `build.mjs` | Bundles the modules into `switchback.html`. |
@@ -98,7 +100,8 @@ six of its colourings, so there is no permutation obstruction. And the state gra
 start, but never return. Tilts destroy information, the move set is not a group, and
 ordinary reachability intuitions do not apply.
 
-Whether the same holds on the full 8×4 board is untested.
+The full 8×4 board has the same shape, and it is now settled exactly: see
+*The full board, settled* below.
 
 ## Solver
 
@@ -187,6 +190,10 @@ before moving on — not preserve throughout, since a real solution does break t
 
 The route in `routes.mjs` is the benchmark. A search that finds it is a search that works.
 
+The plateau was eventually beaten by changing the unit of search rather than
+the heuristic: route the hole pattern first, then fix colours with loops that
+return to it. See *The full board, settled*.
+
 ## The solution matrix
 
 `results/solutions.json` holds every pattern-to-pattern result found so far,
@@ -207,7 +214,8 @@ removes is provably wasted. The hand-played route to pattern 4 went from 741
 moves to 495 that way.
 
 **A failed edge is not an impossible edge.** It means this search, at this
-budget, stopped short. The first cycle solved 3 of 53 edges; 21 of the failures
+budget, stopped short. (The colour-orbit solver below has since filled every
+cell; this paragraph describes the beam search.) The first cycle solved 3 of 53 edges; 21 of the failures
 stopped exactly one marble from done. Pattern 0 to 4 is unsolved by the search
 and solved by hand.
 
@@ -282,16 +290,96 @@ changes the holes, and no tilt can ever produce that hole pattern again.
 Every other booklet pattern has a backward region still growing past 40,000
 positions, so none is trapped in a small cluster.
 
-**The conjecture for the full board:** every booklet pattern except 2 and 5 can
-reach every other one except 2 and 5; 2 and 5 can reach the rest, and nothing
-reaches them. If it holds, the matrix is settled entirely, and every failure
-the solver has recorded between the other 51 is a search failure, including
-9 to 10.
+**The conjecture for the full board**, now a theorem (next section): every
+booklet pattern except 2 and 5 can reach every other one except 2 and 5; 2 and
+5 can reach the rest, and nothing reaches them.
 
-The first half can become a theorem. There are only 10,518,300 hole patterns on
-the full board, and sliders can be set freely between tilts, so the whole
-occupancy graph is small enough to compute exactly — with a fast bit-level
-version of tilt, checked move for move against the engine rather than trusted.
+## The full board, settled
+
+Both halves of the conjecture are proved by exhaustive computation, in C for
+speed (`occupancy/`). The C tilt is a table lookup — within each column's run
+of connected holes a tilt just counts the marbles and packs that many at the
+far end, in order — and `occupancy.test.mjs` checks it against the engine on
+thousands of random labelled boards, including where every marble lands.
+
+### Hole patterns: one closed giant, plus 6,562 dead starts
+
+`occupancy/scc.c` computes the strongly connected components of the whole
+occupancy graph: all 10,518,300 ways to put 24 marbles in 32 holes, with an
+edge for every tilt under every one of the 256 slider settings.
+
+| | |
+| --- | --- |
+| Hole patterns | 10,518,300 |
+| Strongly connected components | 6,563 |
+| Giant component | 10,511,738 hole patterns, **closed** — no tilt leaves it |
+| Everything else | 6,562 singletons, each with **no predecessor at all** |
+
+So on the full board the picture is as simple as it could be. A hole pattern
+either has no predecessor — it can only ever be a starting position — or it is
+in the giant component, from which every other giant-component pattern can be
+reached. There are no small traps and no one-way clusters.
+
+A hole pattern with no predecessor is one that no tilt can leave behind: for
+every slider setting and direction, either some column run is not packed to
+that end, or every run is completely full or completely empty, so the only
+position that tilts onto it is itself. Patterns 2 and 5 share such a hole
+pattern. Every other booklet pattern, and the opening board, is in the giant.
+
+### Colour: every colouring of every target is reachable
+
+Colour never moves anything, so a sequence of tilts that leaves a target's hole
+pattern and comes back to it moves every marble to a hole that does not depend
+on colours: it is a fixed **permutation** of the 24 marbles. Loops compose,
+and a finite set of permutations closed under composition is a group. The
+colourings that can be produced at the target's holes are therefore exactly an
+orbit of that group.
+
+`occupancy/groupsolve.c` finds, for each target, every loop through hole
+patterns within a few tilts of it (typically several hundred distinct
+permutations), then searches the orbit over all C(24,12) = 2,704,156
+colourings. **For every one of the 51 reachable targets the orbit is
+complete**: every colouring of its holes can be rearranged into it. The orbit
+sizes are recorded in `results/solutions.json` and asserted in
+`occupancy.test.mjs`.
+
+### The matrix is settled
+
+Putting the two together: for any two patterns *A* ≠ *B*,
+
+- if *B* is 2 or 5, *A* → *B* is **impossible**;
+- otherwise *A* → *B* is **solvable** — *A*'s hole pattern reaches *B*'s
+  (it is in, or flows into, the closed giant), and once there the colours can
+  always be fixed.
+
+That is 104 impossible cells and 2,652 solvable ones, and 2 and 5 can reach
+each other in neither direction.
+
+### And the solver that comes with it
+
+The proof is constructive, so it is also a solver, and it does not stall:
+
+1. Route the hole pattern: breadth-first over hole patterns from *A* until it
+   meets the region worked out backwards from *B*.
+2. Fix the colours: follow the orbit search, one loop at a time, to *B*'s
+   colouring.
+
+```sh
+node groupsweep.mjs               # every target, four solver processes at once
+node groupsweep.mjs --to 4,9      # only these targets
+node gen_solutions.mjs            # rebuild solutions.mjs for the app
+```
+
+Each target takes well under a minute. Every route is replayed through the JS
+engine before it is stored, so the C code is never trusted on its own, and a
+route only replaces an earlier one if it is shorter.
+
+The whole matrix is now filled: **2,652 routes and 104 proved impossible, with
+nothing unknown.** Routes run from 12 to 488 moves, median 147 — shorter than
+anything found before, including the hand-played ones (the opening board to
+pattern 1 went from 260 moves to 86, and to pattern 4 from 495 to 163). The
+edges the beam search could never finish, such as 9 to 10, are ordinary routes
+of around 150 moves.
 
 ## Sharing a game
 
