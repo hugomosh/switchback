@@ -11,7 +11,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const click = (n) => n.dispatchEvent(new Event('click'));
 
-assert.equal($$('nav button').length, 5);
+assert.equal($$('nav button').length, 6);
 assert.equal($$('.hole').length, 32);
 assert.equal($$('.marble.m1').length, 12);
 assert.equal($$('.marble.m2').length, 12);
@@ -30,5 +30,11 @@ assert.equal($$('.pattern').length, 53, 'patterns view renders in the bundle');
 dom.window.location.hash = '#/analyze';
 dom.window.dispatchEvent(new Event('hashchange'));
 assert.equal($$('.field input').length, 4, 'analysis view renders in the bundle');
+
+dom.window.location.hash = '#/3d';
+dom.window.dispatchEvent(new Event('hashchange'));
+assert.equal($$('.rows3d button').length, 8, '3D view renders in the bundle');
+dom.window.location.hash = '#/play';
+dom.window.dispatchEvent(new Event('hashchange'));
 
 console.log('Bundle smoke test: all checks passed');
