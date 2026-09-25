@@ -13,6 +13,7 @@ import * as analyze from './view-analyze.mjs';
 import * as solveView from './view-solve.mjs';
 import * as matrix from './view-matrix.mjs';
 import * as tray3d from './view-3d.mjs';
+import { themeMenu, loadPrefs } from './theme.mjs';
 
 const ROUTES = [
   { path: 'play', label: 'Play', view: play },
@@ -76,6 +77,8 @@ function render() {
   route = routeFor(app.view);
   document.body.dataset.palette = app.palette;
   document.body.dataset.look = app.look;
+  document.body.dataset.theme = app.theme;
+  document.getElementById('appearance')?.replaceChildren(themeMenu(render));
   drawNav();
   const mount = document.getElementById('view');
   mount.replaceChildren(route.view.render(render));
@@ -108,6 +111,7 @@ document.addEventListener('keyup', (event) => {
 });
 
 window.addEventListener('hashchange', onHashChange);
+loadPrefs();
 subscribe(render);
 
 route = parseHash().route;

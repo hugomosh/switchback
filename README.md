@@ -59,6 +59,7 @@ player's only way to hold a marble still through a gravity resolution.
 | `board.mjs` | Shared board renderer. |
 | `view-3d.mjs` | The 3D tray (three.js), in strict and free modes. |
 | `freeplay.mjs` | Continuous gravity for free mode; settles exactly where the engine does. |
+| `theme.mjs` | The appearance menu: light or dark, marble colours, board look. |
 | `vendor/` | three.js, vendored as one ES module so there is still no build step. |
 | `app.mjs`, `view-*.mjs`, `store.mjs` | The routed app. |
 | `build.mjs` | Bundles the modules into `switchback.html`. |
@@ -398,15 +399,25 @@ It has two modes:
   same history as the Play tab, so undo, replay codes and targets carry over. A
   tilt tips the tray and the marbles the engine moved fall along their columns.
 - **Free — real gravity.** `freeplay.mjs` replaces the engine's instant tilt
-  with continuous physics: hold the tray at any angle (slider, held arrow keys,
-  or the phone's own tilt), marbles accelerate, stack and can be stopped
-  halfway between rows, and a bar with a marble half in it will not slide. When
-  everything is at rest in holes, the position is an ordinary board again and
-  can be taken back into strict mode.
+  with continuous physics. Hold the tray at any angle: marbles accelerate, stack
+  and can be stopped halfway between rows. Bars take time to move and can be
+  dragged and held part-way, and a bar that moves while marbles stream through
+  it catches whichever one is in it — so the physical tricks work, like letting
+  a few marbles through and shutting the bar on the rest. A marble can only
+  enter a row through a hole that lines up exactly, so it can never be inside a
+  block, and a bar with a marble half in it will not move. Arrow keys and the
+  phone's own tilt pull toward that edge of the *screen*, however the tray has
+  been turned. Undo goes back to the last still position, and a position at
+  rest in holes can be copied as a board code or taken back into strict mode.
 
-`freeplay.test.mjs` checks the two agree: on hundreds of random boards and
-slider settings, a free-mode tilt left to settle lands exactly where the
-engine's tilt does.
+`freeplay.test.mjs` checks the physics against the engine: on hundreds of
+random boards and slider settings a free-mode tilt left to settle lands exactly
+where the engine's tilt does, and hundreds of random games of tilting, tapping
+and half-holding bars never put a marble inside a block.
+
+Appearance — light, dark or following the system, the 1993 purple and teal or
+the 1998 orange and green marbles, and the look of the flat board — is one menu
+in the header, remembered between visits.
 
 ## Sharing a game
 

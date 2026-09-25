@@ -17,6 +17,7 @@ export const app = {
   target: null,        // { name, code } or null
   showShelters: true,
   palette: '1993',   // '1993' purple and cyan, '1998' orange and green
+  theme: 'auto',     // 'auto' follows the system, or 'light' / 'dark'
   look: 'tray',
   view: 'play',
   showTarget: true,  // the small target preview under the play board      // which tab is showing; views change it to navigate      // see LOOKS in view-play.mjs
