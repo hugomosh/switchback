@@ -9,10 +9,15 @@
  *           their columns; the engine decides, the scene only shows it.
  *
  *   Free    Real gravity (freeplay.mjs). The tray can be held at any angle,
- *           marbles roll, stack and can be caught between rows, and a bar will
- *           not slide while a marble is half in it. When everything is at rest
- *           in holes the position is an ordinary board again and can be taken
- *           back to strict mode.
+ *           marbles roll, stack and can be caught between rows. Bars take time
+ *           to move and can be held part-way with a finger, so the physical
+ *           tricks work: shut a bar while marbles stream through it and it keeps
+ *           the ones still above. When everything is at rest in holes the
+ *           position is an ordinary board again and can go back to strict mode.
+ *
+ * Tilt in free mode is felt in screen space: an arrow key or a tipped phone
+ * rolls marbles toward that edge of the screen, however the tray has been
+ * turned on screen. Only the slider is measured along the tray's own rows.
  *
  * Geometry follows the engine exactly: one column and one row are one unit,
  * row r's bar holds hole j at column 2j + (r % 2) + shift. Everything visual
@@ -23,22 +28,29 @@
  * and scene are created once and reused, so WebGL is never torn down mid-game.
  */
 import { resolve, slide, stateKey, columnOf, EMPTY } from './engine.mjs';
-import { app, board, commit, note, undo, canUndo, moveCount, lastMove, resetTo } from './store.mjs';
+import {
+  app, board, commit, note, undo, canUndo, moveCount, lastMove, resetTo, replayCode, load, update,
+} from './store.mjs';
 import { compare, patternByNumber } from './patterns.mjs';
-import { createWorld, step, trySlide, toState, atRest, jammedRows } from './freeplay.mjs';
+import {
+  createWorld, cloneWorld, step, trySlide, holdBar, releaseBar, toState, atRest, jammedRows, tiltAlong,
+} from './freeplay.mjs';
 
 const ROWS = 8;
 const SLOTS = 4;
 const MAX_TILT = 70 * Math.PI / 180;
+const KEY_TILT = 40 * Math.PI / 180;
 const STRICT_LEAN = 0.62;          // how far strict mode tips the tray for a tilt
 const FALL = 60;                   // rows / s^2 for the strict-mode fall animation
+const SLIDE_TIME = 0.16;           // seconds for a strict-mode bar slide
 
 const ui = {
   mode: 'strict',
-  angleSetting: 0,                 // free mode: the slider, in degrees
-  keyTilt: 0,                      // free mode: -1 / 0 / 1 while an arrow key is held
-  phone: null,                     // free mode: { zero } while phone tilt is on
-  phoneAngle: 0,
+  angleSetting: 0,                 // free mode: the slider, in degrees along the rows
+  keys: new Set(),                 // free mode: arrow keys held down
+  phone: null,                     // free mode: { beta, gamma } calibration while phone tilt is on
+  phoneGravity: { x: 0, y: 0 },    // free mode: the phone's pull, in screen space
+  copied: '',                      // brief confirmation after a copy
 };
 
 let root = null;                   // the persistent element this view returns
@@ -52,18 +64,24 @@ let lastTime = 0;
 
 // --- what the scene is showing ----------------------------------------------
 // Both modes drive the same display: a bar offset per row and a list of
-// marbles with a column (x) and a row (y), both in board units.
+// marbles with a column (x) and a row (y), both in board units. Nothing is
+// eased toward a target: every position comes straight from the engine's
+// animation or from the physics, so a marble is drawn exactly where the model
+// says it is and never inside a block.
 const disp = {
-  angle: 0,                        // tray tilt actually drawn, radians
-  bars: new Array(ROWS).fill(0),   // drawn bar offsets, eased toward the real ones
-  marbles: [],                     // { value, x, y, cell }
-  flash: new Array(ROWS).fill(0),  // seconds of red left on a jammed bar
+  angle: 0,                        // tray tilt drawn, radians
+  bars: new Array(ROWS).fill(0),
+  marbles: [],                     // { value, x, y }
+  flash: new Array(ROWS).fill(0),  // seconds of red left on a locked bar
+  rowAxis: { x: 0, y: -1 },        // screen direction of increasing row
 };
 
 // Strict mode: the engine state on screen, and moves waiting to be animated.
-const strict = { shown: null, queue: [], anim: null };
-// Free mode: the physics world.
+const strict = { shown: null, queue: [], anim: null, marbles: [] };
+// Free mode: the physics world, and still positions to undo back to.
 let world = null;
+const freeHistory = [];
+let lastStill = null;
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia
@@ -87,26 +105,26 @@ function button(label, onClick, className = '') {
   return node;
 }
 
+function copyText(text, what) {
+  try {
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+  } catch { /* no clipboard: the code is still shown to copy by hand */ }
+  ui.copied = `${what} copied`;
+  if (live.copied) live.copied.textContent = ui.copied;
+  setTimeout(() => { ui.copied = ''; if (live.copied) live.copied.textContent = ''; }, 1800);
+}
+
 // =============================================================================
 // Strict mode: the engine decides, the scene animates
 // =============================================================================
-
-function cellPosition(state, cell) {
-  const row = Math.floor(cell / SLOTS);
-  return { x: columnOf(row, cell % SLOTS, state.shifts[row]), y: row };
-}
 
 /** Put the scene straight onto a board, with no animation. */
 function snapTo(state) {
   strict.shown = state;
   strict.queue = [];
   strict.anim = null;
-  disp.marbles = [];
-  state.cells.forEach((value, cell) => {
-    if (value === EMPTY) return;
-    disp.marbles.push({ value, cell, ...cellPosition(state, cell) });
-  });
-  disp.bars = [...state.shifts];
+  strict.marbles = [];
+  state.cells.forEach((value, cell) => { if (value !== EMPTY) strict.marbles.push({ value, cell, y: null }); });
 }
 
 /** Line the scene up with the store: animate the newest move, or snap. */
@@ -130,17 +148,16 @@ function startNextMove() {
   if (!next) return;
   const hurry = strict.queue.length > 1 ? 3 : 1;   // catch up when moves are queued
   if (next.move.type === 'slide') {
-    strict.shown = next.to;                         // bars and marbles ease across
-    strict.anim = { type: 'slide', t: 0, length: 0.2 / hurry };
+    strict.anim = { type: 'slide', t: 0, hurry, row: next.move.row, target: next.to,
+                    from: next.from.shifts[next.move.row], to: next.to.shifts[next.move.row] };
     return;
   }
   const direction = next.move.direction;
   const { moved } = resolve(next.from, direction);
-  const byCell = new Map(disp.marbles.map((m) => [m.cell, m]));
+  const byCell = new Map(strict.marbles.map((m) => [m.cell, m]));
   const falls = moved.map(({ from, to }) => {
-    const m = byCell.get(from);
     const a = Math.floor(from / SLOTS), b = Math.floor(to / SLOTS);
-    return { m, from: a, to: b, to_cell: to, time: Math.sqrt(2 * Math.abs(b - a) / FALL) };
+    return { m: byCell.get(from), from: a, to: b, cell: to, time: Math.sqrt(2 * Math.abs(b - a) / FALL) };
   });
   strict.anim = {
     type: 'tilt', t: 0, hurry, target: next.to,
@@ -149,56 +166,55 @@ function startNextMove() {
   };
 }
 
+const ease = (u) => u * u * (3 - 2 * u);
+
+function land(anim) {
+  for (const f of anim.falls) { f.m.cell = f.cell; f.m.y = null; }
+  strict.shown = anim.target;
+  anim.landed = true;
+}
+
 function advanceStrict(dt) {
   if (!strict.anim) startNextMove();
   const anim = strict.anim;
-  if (!anim) { disp.angle += (0 - disp.angle) * Math.min(1, dt * 10); return; }
-  anim.t += dt * (anim.hurry ?? 1);
+  const bars = [...strict.shown.shifts];
+  if (anim) anim.t += dt * anim.hurry;
 
-  if (anim.type === 'slide') {
-    if (anim.t >= anim.length) strict.anim = null;
-    return;
-  }
-  // A tilt: lean the tray, let the marbles fall, stand it back up.
-  const LEAN = 0.18;
-  const t = anim.t;
-  const ease = (u) => u * u * (3 - 2 * u);
-  if (t < LEAN) {
-    disp.angle = anim.lean * ease(t / LEAN);
-  } else if (t < LEAN + anim.fallTime) {
-    disp.angle = anim.lean;
-    const u = t - LEAN;
-    for (const f of anim.falls) {
-      const d = Math.min(Math.abs(f.to - f.from), 0.5 * FALL * u * u);
-      f.m.y = f.from + Math.sign(f.to - f.from) * d;
+  if (anim && anim.type === 'slide') {
+    const u = Math.min(1, anim.t / SLIDE_TIME);
+    bars[anim.row] = anim.from + (anim.to - anim.from) * ease(u);
+    if (u >= 1) { strict.shown = anim.target; strict.anim = null; bars[anim.row] = anim.to; }
+  } else if (anim && anim.type === 'tilt') {
+    // Lean the tray, let the marbles fall, stand it back up.
+    const LEAN = 0.18;
+    const t = anim.t;
+    if (t < LEAN) {
+      disp.angle = anim.lean * ease(t / LEAN);
+    } else if (t < LEAN + anim.fallTime) {
+      disp.angle = anim.lean;
+      const u = t - LEAN;
+      for (const f of anim.falls) {
+        f.m.y = f.from + Math.sign(f.to - f.from) * Math.min(Math.abs(f.to - f.from), 0.5 * FALL * u * u);
+      }
+    } else if (t < 2 * LEAN + anim.fallTime) {
+      if (!anim.landed) land(anim);
+      disp.angle = anim.lean * (1 - ease((t - LEAN - anim.fallTime) / LEAN));
+    } else {
+      if (!anim.landed) land(anim);
+      disp.angle = 0;
+      strict.anim = null;
     }
-  } else if (t < 2 * LEAN + anim.fallTime) {
-    if (!anim.landed) {
-      for (const f of anim.falls) { f.m.y = f.to; f.m.cell = f.to_cell; }
-      strict.shown = anim.target;
-      anim.landed = true;
-    }
-    disp.angle = anim.lean * (1 - ease((t - LEAN - anim.fallTime) / LEAN));
   } else {
-    if (!anim.landed) {
-      for (const f of anim.falls) { f.m.y = f.to; f.m.cell = f.to_cell; }
-      strict.shown = anim.target;
-    }
     disp.angle = 0;
-    strict.anim = null;
   }
-}
 
-function strictTargets() {
-  // Marbles sit at the centre of their hole, in the column their bar puts them.
-  const s = strict.shown;
-  for (const m of disp.marbles) {
-    const p = cellPosition(s, m.cell);
-    m.tx = p.x;
-    if (!(strict.anim && strict.anim.type === 'tilt' && !strict.anim.landed
-          && strict.anim.falls.some((f) => f.m === m))) m.y = p.y;
-  }
-  return s.shifts;
+  disp.bars = bars;
+  // A marble's column is its hole's, at wherever its bar is drawn; while it
+  // falls its column cannot change, and no bar moves during a tilt.
+  disp.marbles = strict.marbles.map((m) => {
+    const row = Math.floor(m.cell / SLOTS);
+    return { value: m.value, x: 2 * (m.cell % SLOTS) + (row % 2) + bars[row], y: m.y ?? row };
+  });
 }
 
 function doTilt(direction) {
@@ -221,42 +237,85 @@ function doSlide(row) {
 
 function startFree(state) {
   world = createWorld(state);
-  disp.marbles = world.marbles.map((m) => ({ value: m.value, x: m.column, y: m.y, source: m }));
-  disp.bars = [...world.shifts];
+  freeHistory.length = 0;
+  lastStill = cloneWorld(world);
+}
+
+function freeUndo(rerender) {
+  if (!freeHistory.length) return;
+  world = freeHistory.pop();
+  lastStill = cloneWorld(world);
+  // Put the tray down level too, or it would roll straight off again.
+  ui.angleSetting = 0;
+  if (ui.phone) ui.phone = { beta: null, gamma: null };
+  rerender();
 }
 
 function freeSlide(row) {
   if (!trySlide(world, row)) disp.flash[row] = 0.45;
 }
 
-function freeTargetAngle() {
-  if (ui.keyTilt) return ui.keyTilt * 40 * Math.PI / 180;
-  if (ui.phone) return ui.phoneAngle;
+/** The pull in screen space from held arrow keys, or null if none are held. */
+function keyGravity() {
+  if (!ui.keys.size) return null;
+  let x = 0, y = 0;
+  if (ui.keys.has('ArrowUp')) y += 1;
+  if (ui.keys.has('ArrowDown')) y -= 1;
+  if (ui.keys.has('ArrowRight')) x += 1;
+  if (ui.keys.has('ArrowLeft')) x -= 1;
+  const len = Math.hypot(x, y) || 1;
+  return { x: (x / len) * Math.sin(KEY_TILT), y: (y / len) * Math.sin(KEY_TILT) };
+}
+
+/** Tilt along the rows that the physics should feel right now. */
+function freeAngle() {
+  const keys = keyGravity();
+  if (keys) return tiltAlong(keys, disp.rowAxis);
+  if (ui.phone) return tiltAlong(ui.phoneGravity, disp.rowAxis);
   return ui.angleSetting * Math.PI / 180;
 }
 
+let physicsAngle = 0;
 function advanceFree(dt) {
-  const target = Math.max(-MAX_TILT, Math.min(MAX_TILT, freeTargetAngle()));
-  disp.angle += (target - disp.angle) * Math.min(1, dt * 7);
-  step(world, dt, disp.angle);
-  for (const m of disp.marbles) { m.tx = m.source.column; m.y = m.source.y; }
-  return world.shifts;
+  const target = Math.max(-MAX_TILT, Math.min(MAX_TILT, freeAngle()));
+  physicsAngle += (target - physicsAngle) * Math.min(1, dt * 8);
+  const wasStill = atRest(world);
+  step(world, dt, physicsAngle);
+  const still = atRest(world);
+  if (wasStill && !still && lastStill) freeHistory.push(lastStill);
+  if (still) lastStill = cloneWorld(world);
+  if (freeHistory.length > 200) freeHistory.shift();
+  // With the phone, the phone itself is the tray: don't tip the picture too.
+  disp.angle = ui.phone ? 0 : physicsAngle;
+  disp.bars = [...world.bar];
+  disp.marbles = world.marbles.map((m) => ({ value: m.value, x: m.x, y: m.y }));
 }
 
 function freeStatus() {
   if (!world) return '';
-  const moving = !atRest(world);
+  if (!atRest(world)) return 'Rolling…';
   const position = toState(world);
-  if (moving) return 'Rolling…';
-  if (!position) return 'At rest, with a marble caught between two rows — its bars are jammed.';
+  if (world.bar.some((b) => b !== 0 && b !== 1)) return 'A bar is held part-way — let go and it clicks to the nearer end.';
+  if (!position) return 'At rest, with a marble caught between two rows — its bars are locked.';
   if (stateKey(position) === stateKey(board())) return 'At rest, on the same board as strict mode.';
-  return 'At rest in holes — this is a board position, and strict mode can take it from here.';
+  return 'At rest in holes — a board position strict mode can take from here.';
 }
 
 function onOrientation(event) {
-  if (!ui.phone || event.beta == null) return;
-  if (ui.phone.zero == null) ui.phone.zero = event.beta;
-  ui.phoneAngle = (event.beta - ui.phone.zero) * Math.PI / 180;
+  if (!ui.phone || event.beta == null || event.gamma == null) return;
+  if (ui.phone.beta == null) ui.phone = { beta: event.beta, gamma: event.gamma };
+  const rad = Math.PI / 180;
+  // In the phone's own frame: tipping the right edge down pulls right, lifting
+  // the top edge pulls down the screen.
+  const gx = Math.sin((event.gamma - ui.phone.gamma) * rad);
+  const gy = -Math.sin((event.beta - ui.phone.beta) * rad);
+  // Then into screen space, which turns with the phone in landscape.
+  let turn = 0;
+  try { turn = (screen.orientation?.angle ?? window.orientation ?? 0) * rad; } catch { turn = 0; }
+  ui.phoneGravity = {
+    x: gx * Math.cos(turn) - gy * Math.sin(turn),
+    y: gx * Math.sin(turn) + gy * Math.cos(turn),
+  };
 }
 
 async function togglePhone(rerender) {
@@ -270,7 +329,8 @@ async function togglePhone(rerender) {
   try {
     if (D && typeof D.requestPermission === 'function' && (await D.requestPermission()) !== 'granted') return;
   } catch { return; }
-  ui.phone = { zero: null };
+  ui.phone = { beta: null, gamma: null };   // whatever angle it is held at now counts as level
+  ui.phoneGravity = { x: 0, y: 0 };
   window.addEventListener('deviceorientation', onOrientation);
   rerender();
 }
@@ -284,20 +344,19 @@ function frame(now) {
   const dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
   lastTime = now;
 
-  const shifts = ui.mode === 'free' && world ? advanceFree(dt) : (advanceStrict(dt), strictTargets());
-  const k = Math.min(1, dt * 16);
-  for (let r = 0; r < ROWS; r++) {
-    disp.bars[r] += (shifts[r] - disp.bars[r]) * k;
-    disp.flash[r] = Math.max(0, disp.flash[r] - dt);
-  }
-  for (const m of disp.marbles) m.x += (m.tx - m.x) * k;
+  if (ui.mode === 'free' && world) advanceFree(dt); else advanceStrict(dt);
+  for (let r = 0; r < ROWS; r++) disp.flash[r] = Math.max(0, disp.flash[r] - dt);
 
   if (ui.mode === 'free' && live.status) {
     const text = freeStatus();
     if (live.status.textContent !== text) live.status.textContent = text;
-    const ok = world && atRest(world) && toState(world) && stateKey(toState(world)) !== stateKey(board());
-    live.adopt.disabled = !ok;
-    live.angle.textContent = angleLabel(disp.angle);
+    const position = atRest(world) ? toState(world) : null;
+    live.adopt.disabled = !position || stateKey(position) === stateKey(board());
+    live.copy.disabled = !position;
+    live.undo.disabled = !freeHistory.length;
+    live.angle.textContent = angleLabel(physicsAngle);
+    const jammed = jammedRows(world);
+    live.rows.forEach((b, r) => b.classList.toggle('jammed', jammed.has(r)));
   }
   if (ctx) draw();
   requestAnimationFrame(frame);
@@ -596,8 +655,23 @@ function updatePrints() {
 }
 
 function draw() {
-  const { renderer, scene, camera, tray, bars, marbles, marbleMat, view } = ctx;
+  const { THREE, renderer, scene, camera, tray, bars, marbles, marbleMat, view } = ctx;
   updatePrints();
+  const { theta, phi, radius } = view;
+  camera.position.set(
+    radius * Math.sin(phi) * Math.sin(theta),
+    radius * Math.cos(phi) - 1,
+    radius * Math.sin(phi) * Math.cos(theta),
+  );
+  camera.lookAt(0, -1, 0);
+  camera.updateMatrixWorld();
+
+  // Where the rows run on screen, with the tray lying flat: row 1's end of the
+  // tray is at -z in world space, row 8's at +z.
+  const a = new THREE.Vector3(0, 0, -3.5).project(camera);
+  const b = new THREE.Vector3(0, 0, 3.5).project(camera);
+  disp.rowAxis = { x: (b.x - a.x) * camera.aspect, y: b.y - a.y };
+
   // Lying on the table, top row away from you. A tilt lifts one edge.
   tray.rotation.x = -Math.PI / 2 + disp.angle;
   for (let r = 0; r < ROWS; r++) {
@@ -612,13 +686,6 @@ function draw() {
     if (mesh.material !== material) mesh.material = material;
     mesh.position.set(m.x - 4, 3.5 - m.y, -0.16);
   });
-  const { theta, phi, radius } = view;
-  camera.position.set(
-    radius * Math.sin(phi) * Math.sin(theta),
-    radius * Math.cos(phi) - 1,
-    radius * Math.sin(phi) * Math.cos(theta),
-  );
-  camera.lookAt(0, -1, 0);
   renderer.render(scene, camera);
 }
 
@@ -635,23 +702,52 @@ function resize() {
   ctx.camera.updateProjectionMatrix();
 }
 
-/** Orbit by dragging, zoom by wheel or pinch, slide a bar by tapping it. */
+/**
+ * Pointer input on the canvas. On a bar: tap to slide it, or drag it — in free
+ * mode the bar follows the finger and can be held part-way. Anywhere else:
+ * drag to turn the tray, pinch or scroll to zoom.
+ */
 function attachControls(c) {
   const canvas = c.renderer.domElement;
   canvas.style.touchAction = 'none';
   const pointers = new Map();
-  let travel = 0, pinch = 0;
+  let travel = 0, pinch = 0, grab = null;
   const ray = new c.THREE.Raycaster();
+
+  const toPixels = (v) => {
+    const rect = canvas.getBoundingClientRect();
+    const p = v.clone().project(c.camera);
+    return { x: (p.x + 1) / 2 * rect.width, y: (1 - p.y) / 2 * rect.height };
+  };
 
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     travel = 0;
+    grab = null;
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       pinch = Math.hypot(a.x - b.x, a.y - b.y);
+      return;
     }
+    const rect = canvas.getBoundingClientRect();
+    ray.setFromCamera(new c.THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+    ), c.camera);
+    const hit = ray.intersectObjects(c.bars.map((b) => b.hit), false)[0];
+    if (!hit) return;
+    // One column along this bar, in screen pixels, to turn a drag into a slide.
+    const row = hit.object.userData.row;
+    const p0 = toPixels(c.tray.localToWorld(new c.THREE.Vector3(0, 3.5 - row, 0)));
+    const p1 = toPixels(c.tray.localToWorld(new c.THREE.Vector3(1, 3.5 - row, 0)));
+    grab = {
+      row, x: e.clientX, y: e.clientY, u: { x: p1.x - p0.x, y: p1.y - p0.y },
+      start: ui.mode === 'free' && world ? world.bar[row] : board().shifts[row],
+      moved: false, fired: false,
+    };
   });
+
   canvas.addEventListener('pointermove', (e) => {
     const p = pointers.get(e.pointerId);
     if (!p) return;
@@ -665,23 +761,37 @@ function attachControls(c) {
       pinch = d;
       return;
     }
+    if (grab) {
+      const len2 = grab.u.x ** 2 + grab.u.y ** 2 || 1;
+      const columns = ((e.clientX - grab.x) * grab.u.x + (e.clientY - grab.y) * grab.u.y) / len2;
+      if (Math.abs(columns) > 0.06) grab.moved = true;
+      if (!grab.moved) return;
+      if (ui.mode === 'free' && world) {
+        if (!holdBar(world, grab.row, grab.start + columns)) disp.flash[grab.row] = 0.45;
+      } else if (!grab.fired && (grab.start === 0 ? columns > 0.45 : columns < -0.45)) {
+        grab.fired = true;
+        doSlide(grab.row);
+      }
+      return;
+    }
     c.view.theta -= dx * 0.007;
     c.view.phi = Math.max(0.12, Math.min(1.5, c.view.phi - dy * 0.007));
   });
+
   const release = (e) => {
     if (!pointers.has(e.pointerId)) return;
     pointers.delete(e.pointerId);
-    if (pointers.size || travel > 6) return;
-    const rect = canvas.getBoundingClientRect();
-    ray.setFromCamera(new c.THREE.Vector2(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1,
-    ), c.camera);
-    const hit = ray.intersectObjects(c.bars.map((b) => b.hit), false)[0];
-    if (hit) slideRow(hit.object.userData.row);
+    const g = grab;
+    grab = null;
+    if (!g || pointers.size) return;
+    if (g.moved) {
+      if (ui.mode === 'free' && world) releaseBar(world, g.row);
+    } else if (travel <= 8) {
+      slideRow(g.row);   // a tap
+    }
   };
   canvas.addEventListener('pointerup', release);
-  canvas.addEventListener('pointercancel', (e) => pointers.delete(e.pointerId));
+  canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoom(Math.exp(e.deltaY * 0.001)); }, { passive: false });
   canvas.addEventListener('dblclick', resetView);
   const zoom = (factor) => { c.view.radius = Math.max(13, Math.min(55, c.view.radius * factor)); };
@@ -693,7 +803,7 @@ function resetView() {
 }
 
 function slideRow(row) {
-  if (ui.mode === 'free') freeSlide(row); else doSlide(row);
+  if (ui.mode === 'free' && world) freeSlide(row); else doSlide(row);
 }
 
 // =============================================================================
@@ -703,13 +813,12 @@ function slideRow(row) {
 function setMode(mode, rerender) {
   if (mode === ui.mode) return;
   ui.mode = mode;
-  ui.keyTilt = 0;
+  ui.keys.clear();
   if (mode === 'free') {
     startFree(board());
   } else {
     world = null;
     strict.shown = null;
-    disp.angle = 0;
     syncStrict();
   }
   rerender();
@@ -717,96 +826,136 @@ function setMode(mode, rerender) {
 
 function rowButtons() {
   const rows = el('div', 'rows3d');
-  const jammed = ui.mode === 'free' && world ? jammedRows(world) : new Set();
+  live.rows = [];
   for (let r = 0; r < ROWS; r++) {
     const b = button(String(r + 1), () => slideRow(r));
     b.title = `Slide bar ${r + 1}`;
-    if (jammed.has(r)) b.classList.add('jammed');
     rows.appendChild(b);
+    live.rows.push(b);
   }
   return rows;
 }
 
+function strictPanel(rerender) {
+  const nodes = [];
+  const tilts = el('div', 'tilts');
+  tilts.append(button('Tilt up', () => doTilt('up')), button('Tilt down', () => doTilt('down')));
+  nodes.push(tilts, rowButtons());
+
+  const minor = el('div', 'minor');
+  const undoBtn = button('Undo', undo);
+  undoBtn.disabled = !canUndo();
+  minor.append(undoBtn,
+    button('Capture as pattern', () => update((s) => {
+      s.captured.push({ name: `Captured ${s.captured.length + 1}`, note: `After ${moveCount()} moves.`, state: board() });
+      note('captured as a pattern — see the Patterns tab');
+    })),
+    button('Reset view', resetView));
+  nodes.push(minor);
+
+  const readout = el('div', 'readout');
+  const list = el('dl');
+  const pairs = [['Moves', String(moveCount())], ['Last move', lastMove()]];
+  if (app.target) {
+    const match = compare(board(), app.target.state);
+    pairs.push(['Target', app.target.name],
+      ['Progress', match.solved ? 'Solved' : `${match.missing} marble${match.missing === 1 ? '' : 's'} still out of place`]);
+  }
+  for (const [dt, dd] of pairs) list.append(el('dt', '', dt), el('dd', '', dd));
+  readout.appendChild(list);
+
+  // The replay code: the whole game, to copy out or paste back in.
+  const code = el('div', 'code');
+  const input = el('input');
+  input.value = replayCode();
+  input.spellcheck = false;
+  input.setAttribute('aria-label', 'Replay code');
+  const error = el('div', 'err');
+  code.append(input,
+    button('Copy', () => { input.select(); copyText(input.value, 'Replay code'); }),
+    button('Load', () => {
+      try { load(input.value, board().board); } catch (e) { error.textContent = e.message; }
+    }));
+  readout.append(code, error, (live.copied = el('p', 'note copied', ui.copied)));
+  nodes.push(readout);
+  nodes.push(el('p', 'note',
+    'The same game as the Play tab: moves go through the engine onto the same history, so undo and '
+    + 'replay codes carry over. Tap or drag a bar to slide it. Keyboard: 1–8 slide, arrows tilt '
+    + 'toward that edge of the screen, U undoes. The first print on the frame is your target.'));
+  return nodes;
+}
+
+function freePanel(rerender) {
+  const nodes = [];
+  const tilt = el('div', 'tilt3d');
+  const range = el('input');
+  Object.assign(range, { type: 'range', min: '-70', max: '70', step: '1', value: String(ui.angleSetting) });
+  range.setAttribute('aria-label', 'Tray tilt');
+  range.disabled = !!ui.phone;
+  range.addEventListener('input', () => { ui.angleSetting = Number(range.value); });
+  const head = el('div', 'tilt3d-head');
+  head.append(el('span', '', ui.phone ? 'Tilt — from the phone' : 'Tilt'),
+    (live.angle = el('span', 'tilt3d-angle', angleLabel(physicsAngle))));
+  tilt.append(head, range);
+  nodes.push(tilt);
+
+  const minor = el('div', 'minor');
+  minor.append(button('Level', () => {
+    ui.angleSetting = 0; range.value = '0';
+    if (ui.phone) ui.phone = { beta: null, gamma: null };   // re-zero the phone where it is now
+  }));
+  if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
+    minor.append(button(ui.phone ? 'Phone tilt: on' : 'Use phone tilt', () => togglePhone(rerender), ui.phone ? 'on' : ''));
+  }
+  live.undo = button('Undo', () => freeUndo(rerender));
+  live.undo.disabled = !freeHistory.length;
+  minor.append(live.undo, button('Reset view', resetView));
+  nodes.push(minor, rowButtons());
+
+  nodes.push((live.status = el('p', 'note free-status', freeStatus())));
+  const act = el('div', 'minor');
+  live.adopt = button('Play this position in strict mode', () => {
+    const s = toState(world);
+    if (!s) return;
+    resetTo(s, 'from free play');
+    setMode('strict', rerender);
+  }, 'strong');
+  live.copy = button('Copy board code', () => {
+    const s = toState(world);
+    if (s) copyText(stateKey(s), 'Board code');
+  });
+  const position = world && atRest(world) ? toState(world) : null;
+  live.adopt.disabled = !position || stateKey(position) === stateKey(board());
+  live.copy.disabled = !position;
+  act.append(live.adopt, live.copy, button('Start again from the strict board', () => { startFree(board()); rerender(); }));
+  nodes.push(act, (live.copied = el('p', 'note copied', ui.copied)));
+  nodes.push(el('p', 'note',
+    'Nothing here is decided by the engine: the marbles simply fall. Hold the tray at any angle. '
+    + 'Drag a bar to hold it part-way, and shut it while marbles stream through to keep the rest back — '
+    + 'a bar with a marble half in it will not move. Arrow keys and phone tilt pull toward that edge '
+    + 'of the screen, however the tray is turned. Undo goes back to the last still position.'));
+  return nodes;
+}
+
 function drawPanel(rerender) {
   live = {};
-  const nodes = [];
-
   const seg = el('div', 'seg');
   for (const [mode, label] of [['strict', 'Strict — engine rules'], ['free', 'Free — real gravity']]) {
     const b = button(label, () => setMode(mode, rerender), ui.mode === mode ? 'on' : '');
     b.setAttribute('aria-pressed', String(ui.mode === mode));
     seg.appendChild(b);
   }
-  nodes.push(seg);
-
-  if (ui.mode === 'strict') {
-    const tilts = el('div', 'tilts');
-    tilts.append(button('Tilt up', () => doTilt('up')), button('Tilt down', () => doTilt('down')));
-    nodes.push(tilts, rowButtons());
-    const minor = el('div', 'minor');
-    const undoBtn = button('Undo', undo);
-    undoBtn.disabled = !canUndo();
-    minor.append(undoBtn, button('Reset view', resetView));
-    nodes.push(minor);
-
-    const readout = el('div', 'readout');
-    const list = el('dl');
-    const pairs = [['Moves', String(moveCount())], ['Last move', lastMove()]];
-    if (app.target) {
-      const match = compare(board(), app.target.state);
-      pairs.push(['Target', app.target.name],
-        ['Progress', match.solved ? 'Solved' : `${match.missing} marble${match.missing === 1 ? '' : 's'} still out of place`]);
-    }
-    for (const [dt, dd] of pairs) list.append(el('dt', '', dt), el('dd', '', dd));
-    readout.appendChild(list);
-    nodes.push(readout);
-    nodes.push(el('p', 'note',
-      'The same game as the Play tab: moves go through the engine and onto the same history, '
-      + 'so undo and replay codes carry over. Keyboard: 1–8 slide, arrows tilt, U undoes. '
-      + 'The first print on the frame is your target.'));
-  } else {
-    const tilt = el('div', 'tilt3d');
-    const range = el('input');
-    Object.assign(range, { type: 'range', min: '-70', max: '70', step: '1', value: String(ui.angleSetting) });
-    range.setAttribute('aria-label', 'Tray tilt');
-    range.addEventListener('input', () => { ui.angleSetting = Number(range.value); });
-    const head = el('div', 'tilt3d-head');
-    head.append(el('span', '', 'Tilt'), (live.angle = el('span', 'tilt3d-angle', angleLabel(disp.angle))));
-    tilt.append(head, range);
-    nodes.push(tilt);
-
-    const minor = el('div', 'minor');
-    minor.append(button('Level', () => { ui.angleSetting = 0; range.value = '0'; if (ui.phone) ui.phone.zero = null; }));
-    if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
-      minor.append(button(ui.phone ? 'Phone tilt: on' : 'Use phone tilt', () => togglePhone(rerender), ui.phone ? 'on' : ''));
-    }
-    minor.append(button('Reset view', resetView));
-    nodes.push(minor, rowButtons());
-
-    nodes.push((live.status = el('p', 'note free-status', freeStatus())));
-    const act = el('div', 'minor');
-    live.adopt = button('Play this position in strict mode', () => {
-      const s = toState(world);
-      if (!s) return;
-      resetTo(s, 'from free play');
-      setMode('strict', rerender);
-    }, 'strong');
-    live.adopt.disabled = true;
-    act.append(live.adopt, button('Start again from the strict board', () => { startFree(board()); rerender(); }));
-    nodes.push(act);
-    nodes.push(el('p', 'note',
-      'Nothing here is decided by the engine: the marbles simply fall. Hold the tray at any angle; '
-      + 'marbles can stop halfway, and a bar with a marble half in it will not move. '
-      + 'Keyboard: hold an arrow to tilt, 1–8 slide.'));
-  }
-  panel.replaceChildren(...nodes);
+  panel.replaceChildren(seg, ...(ui.mode === 'strict' ? strictPanel(rerender) : freePanel(rerender)));
 }
 
 // =============================================================================
 // View entry points
 // =============================================================================
 
+let rerenderView = () => {};
+
 export function render(rerender) {
+  rerenderView = rerender;
   if (!root) {
     root = el('div', 'view view3d');
     stage = el('div', 'stage');
@@ -815,6 +964,7 @@ export function render(rerender) {
       ? 'Loading the 3D tray…'
       : 'This browser has no WebGL, so the 3D tray cannot be drawn. The controls below still play the game.'));
     root.append(stage, panel);
+    if (typeof window !== 'undefined') window.addEventListener('blur', () => ui.keys.clear());
   }
   if (ui.mode === 'strict') syncStrict();
   else if (!world) startFree(board());
@@ -824,20 +974,26 @@ export function render(rerender) {
   return root;
 }
 
+const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+
 export function keydown(event) {
   if (event.target instanceof HTMLInputElement && event.target.type !== 'range') return;
   if (event.key >= '1' && event.key <= '8') {
     slideRow(Number(event.key) - 1);
-  } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+  } else if (ARROWS.includes(event.key)) {
     event.preventDefault();
-    const direction = event.key === 'ArrowDown' ? 'down' : 'up';
-    if (ui.mode === 'free') ui.keyTilt = direction === 'down' ? 1 : -1;
-    else if (!event.repeat) doTilt(direction);
-  } else if (event.key.toLowerCase() === 'u' && ui.mode === 'strict') {
-    undo();
+    if (ui.mode === 'free') { ui.keys.add(event.key); return; }
+    if (event.repeat) return;
+    // Strict: tilt toward the edge of the screen the arrow points at.
+    const pull = { ArrowUp: { x: 0, y: 1 }, ArrowDown: { x: 0, y: -1 },
+                   ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 } }[event.key];
+    const along = tiltAlong(pull, disp.rowAxis);
+    if (Math.abs(along) > 0.3) doTilt(along > 0 ? 'down' : 'up');
+  } else if (event.key.toLowerCase() === 'u') {
+    if (ui.mode === 'free') freeUndo(rerenderView); else undo();
   }
 }
 
 export function keyup(event) {
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') ui.keyTilt = 0;
+  ui.keys.delete(event.key);
 }

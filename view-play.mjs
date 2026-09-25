@@ -10,13 +10,6 @@ import { compare } from './patterns.mjs';
 
 let armed = false;   // the reset button is waiting for confirmation
 
-/** Board looks, to compare side by side rather than guess at. */
-export const LOOKS = [
-  { id: 'tray', label: 'Tray', note: 'Rows flush together, bars running edge to edge.' },
-  { id: 'spaced', label: 'Spaced', note: 'A gap between rows, so open channels are easy to read.' },
-  { id: 'ink', label: 'Ink', note: 'Dark board, flat marbles — closest to the printed patterns.' },
-  { id: 'paper', label: 'Paper', note: 'Pale and low contrast, like the booklet page.' },
-];
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -141,8 +134,6 @@ export function render() {
     undoBtn,
     button(app.showShelters ? 'Hide shelters' : 'Show shelters',
       () => update((s) => { s.showShelters = !s.showShelters; })),
-    button(app.palette === '1993' ? 'Purple and cyan (1993)' : 'Orange and green (1998)',
-      () => update((s) => { s.palette = s.palette === '1993' ? '1998' : '1993'; })),
     button('Capture as pattern', () => update((s) => {
       s.captured.push({
         name: `Captured ${s.captured.length + 1}`,
@@ -152,17 +143,6 @@ export function render() {
     })),
   );
   view.appendChild(minor);
-
-  // Look switcher — flip between them on the live board to compare.
-  const looks = el('div', 'minor looks');
-  for (const look of LOOKS) {
-    const btn = button(look.label, () => update((s) => { s.look = look.id; }),
-      app.look === look.id ? 'on' : '');
-    btn.title = look.note;
-    looks.appendChild(btn);
-  }
-  view.appendChild(looks);
-  view.appendChild(el('p', 'note', LOOKS.find((l) => l.id === app.look).note));
 
   // Reset sits apart from Undo, asks before it fires, and is itself undoable.
   const danger = el('div', 'minor danger');

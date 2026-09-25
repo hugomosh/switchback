@@ -14,6 +14,7 @@ global.window = dom.window;
 global.document = dom.window.document;
 global.location = dom.window.location;
 global.history = dom.window.history;
+global.localStorage = dom.window.localStorage;
 global.HTMLInputElement = dom.window.HTMLInputElement;
 
 const click = (node) => node.dispatchEvent(new dom.window.Event('click'));
@@ -218,16 +219,26 @@ const values = Object.fromEntries($$('.readout dt').map((n, i) => [n.textContent
 assert.equal(values['Parity obstruction'], 'no');
 assert.equal(values['Bare transposition'], 'found');
 
-// --- palette switching -----------------------------------------------------
+// --- appearance menu: palette, theme and look ---------------------------
 await goto('#/play');
-const paletteBtn = $$('.minor button').find((b) => /1993|1998/.test(b.textContent));
-assert.ok(paletteBtn, 'the palette toggle is present');
+const openMenu = () => { click($('.theme-btn')); };
+assert.ok($('.theme-btn'), 'the appearance button is in the header');
+openMenu();
+assert.ok($('.theme-pop'), 'it opens a menu');
 assert.equal(document.body.dataset.palette, '1993');
-click(paletteBtn);
+click($$('.theme-palette').find((b) => /1998/.test(b.textContent)));
 assert.equal(document.body.dataset.palette, '1998', 'switched to the 1998 edition colours');
 assert.equal($$('.marble.m1').length + $$('.marble.m2').length, 24, 'marbles keep their classes');
-click($$('.minor button').find((b) => /1993|1998/.test(b.textContent)));
+assert.ok($('.theme-pop'), 'the menu stays open while choosing');
+click($$('.theme-palette').find((b) => /1993/.test(b.textContent)));
 assert.equal(document.body.dataset.palette, '1993');
+assert.equal(document.body.dataset.theme, 'auto', 'follows the system until told otherwise');
+click($$('.theme-opt').find((b) => b.textContent === 'Dark'));
+assert.equal(document.body.dataset.theme, 'dark');
+assert.match(localStorage.getItem('switchback.appearance'), /"theme":"dark"/, 'the choice is remembered');
+click($$('.theme-opt').find((b) => b.textContent === 'Auto'));
+document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
+assert.equal($('.theme-pop'), null, 'Escape closes the menu');
 
 // --- solve view ------------------------------------------------------------
 await goto('#/solve');
@@ -261,18 +272,19 @@ assert.equal($$('.tray .hole').length, 32, 'every well is drawn');
 assert.equal($$('.tray .hole > .marble').length, 24, 'every marble sits inside a well');
 // --- look presets ----------------------------------------------------------
 assert.equal(document.body.dataset.look, 'tray');
-const lookRow = $('.minor.looks');
-assert.ok(lookRow, 'the look switcher is present');
-const lookButtons = [...lookRow.querySelectorAll('button')];
+click($('.theme-btn'));
+const lookButtons = $$('.theme-look');
 assert.deepEqual(lookButtons.map((b) => b.textContent), ['Tray', 'Spaced', 'Ink', 'Paper']);
 for (const label of ['Spaced', 'Ink', 'Paper', 'Tray']) {
-  click([...$('.minor.looks').querySelectorAll('button')].find((b) => b.textContent === label));
+  click($$('.theme-look').find((b) => b.textContent === label));
   assert.equal(document.body.dataset.look, label.toLowerCase(), `look ${label}`);
   assert.equal($$('.tray .hole > .marble').length, 24, `marbles survive the ${label} look`);
 }
+click($('.theme-btn'));
 for (const look of ['tray', 'ink', 'paper']) {
   assert.ok(sheet.includes(`body[data-look="${look}"]`), `no rules for the ${look} look`);
 }
+assert.ok(sheet.includes('body[data-theme="dark"]'), 'dark mode has its own tokens');
 
 console.log('board styling and look checks passed');
 
@@ -311,10 +323,14 @@ console.log('shelter and flush-row checks passed');
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(Number($$('.view3d .readout dd')[0].textContent), Number(movesBefore) + 1 + tiltMoves,
     'strict moves land on the shared history');
+  assert.ok($('.view3d .code input').value.includes('~'), 'the replay code is shown in 3D');
+  assert.ok(tabButton('Capture as pattern') && tabButton('Undo'), 'capture and undo are in 3D too');
   click($$('.seg button')[1]);                    // free mode
   await new Promise((r) => setTimeout(r, 0));
   assert.ok($('.tilt3d input[type=range]'), 'free mode has a tilt control');
   assert.match($('.free-status').textContent, /At rest/, 'a fresh free world starts at rest');
+  assert.ok(tabButton('Copy board code') && !tabButton('Copy board code').disabled, 'a still board can be copied');
+  assert.ok(tabButton('Undo').disabled, 'nothing to undo in a fresh free world');
   click($$('.seg button')[0]);
   await new Promise((r) => setTimeout(r, 0));
   await goto('#/play');                           // leaving the tab stops its frame loop
