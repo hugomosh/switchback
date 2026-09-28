@@ -290,6 +290,36 @@
   .edge-proven { color: var(--proven-ink); font-weight: 600; }
   .edge-detail .minor button.strong { background: var(--tray); border-color: var(--tray); color: #fff; }
 
+  /* ---- how to play ---- */
+  .howto { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .howto summary { display: flex; align-items: baseline; gap: 10px; padding: 11px 14px; cursor: pointer;
+                   list-style: none; user-select: none; }
+  .howto summary::-webkit-details-marker { display: none; }
+  .howto summary::before { content: ''; width: 7px; height: 7px; flex: none; align-self: center;
+                           border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft);
+                           transform: rotate(-45deg); transition: transform .15s ease; margin-right: 2px; }
+  .howto[open] summary::before { transform: rotate(45deg); }
+  .howto-title { font-weight: 600; }
+  .howto-hint { font-size: 12px; color: var(--ink-soft); }
+  .howto-body { padding: 0 14px 12px; font-size: 14px; }
+  .howto-body p { margin: 0 0 8px; }
+  .howto-body h4 { margin: 12px 0 6px; font-size: 13px; font-weight: 600; }
+  .howto-body ul { margin: 0 0 4px; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+  .howto-body strong { font-weight: 600; }
+  .howto-figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 10px; }
+  .howto-fig { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .howto-fig figcaption { font-size: 11px; line-height: 1.35; color: var(--ink-soft); }
+  .howto-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 1px; padding: 4px;
+                border-radius: 6px; background: var(--tray); }
+  .howto-grid i { aspect-ratio: 1; display: grid; place-items: center; }
+  .howto-grid .hb { background: var(--bar); border-radius: 2px; }
+  .howto-grid .hw { background: var(--well); border-radius: 2px; }
+  .howto-grid .hg { aspect-ratio: auto; height: 5px; }
+  .howto-grid .hg.open { background: var(--gate); border-radius: 2px; margin: 0 30%; }
+  .howto-grid .hm { width: 70%; height: 70%; border-radius: 50%; background: var(--marble-1); opacity: .45; }
+  .howto-grid .hm.go { opacity: 1; }
+  @media (max-width: 420px) { .howto-figs { grid-template-columns: 1fr 1fr; } }
+
   /* ---- header and appearance menu ---- */
   .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .theme-menu { position: relative; }

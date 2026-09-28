@@ -74,5 +74,20 @@ for (const move of marbleMoves) {
   assert.notEqual(offset, 0);
 }
 
+// --- a marble rising is drawn above the row it climbs out of -------------
+// Each bar paints over the rows above it, so a marble moving up would travel
+// hidden under the bar below unless its own bar is lifted while it moves.
+played.length = 0;
+click($$('.tilts button').find((b) => b.textContent === 'Tilt up'));
+const rising = played.filter((p) => p.element.classList.contains('marble'));
+assert.ok(rising.length > 0, 'tilting back up moves marbles too');
+for (const move of rising) {
+  assert.ok(Number(move.frames[0].transform.match(/-?\d+/)[0]) > 0, 'they start below where they land');
+  assert.equal(move.element.closest('.bar').style.zIndex, '1', 'and their bar sits on top while they move');
+}
+await Promise.resolve();
+await Promise.resolve();
+assert.ok(rising.every((m) => m.element.closest('.bar').style.zIndex === ''), 'and drops back afterwards');
+
 function $(sel) { return document.querySelector(sel); }
 console.log(`motion checks passed — ${marbleMoves.length} marbles animated on the tilt`);
