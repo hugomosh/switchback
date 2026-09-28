@@ -60,6 +60,14 @@ for (const bar of $$('.tray .bar')) {
 const gatesDrawn = () => $$('.gates').map((g) => [...g.children].filter((c) => c.firstChild).length);
 assert.deepEqual(gatesDrawn(), [0, 0, 0, 0, 0, 0, 0], 'no channel is open with every slider at rest');
 
+// --- clicking a row slides it, like its button -----------------------------
+click($$('.tray .row')[4]);
+assert.equal(barOffsets()[4], columnOf(4, 0, 1) - LEAD, 'clicking row 5 slid its bar');
+click($$('.tray .row')[4]);
+assert.equal(barOffsets()[4], columnOf(4, 0, 0) - LEAD, 'and clicking again slides it back');
+assert.ok($('footer.credit a[href="https://github.com/hugomosh/switchback"]'), 'the footer links the repo');
+assert.match($('footer.credit').textContent, /Ira Friedman/, 'and credits the inventor');
+
 // --- moves and URL sync ----------------------------------------------------
 click($$('.slider-btn')[0]);
 assert.equal(barOffsets()[0], 1 - LEAD, 'row 1 bar moved one column');

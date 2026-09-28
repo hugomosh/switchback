@@ -99,7 +99,7 @@ function rules() {
 const PLAY = () => {
   const box = el('div', 'howto-body');
   box.append(el('h4', '', 'On this board'), list([
-    ['The numbered buttons slide rows 1–8; ▸ means that bar is pushed across. ', strong('Tilt up'), ' and ', strong('Tilt down'), ' tip the tray.'],
+    [strong('Click a row'), ' to slide its bar, or use the numbered buttons beside it; ▸ means that bar is pushed across. ', strong('Tilt up'), ' and ', strong('Tilt down'), ' tip the tray.'],
     ['Teal marks between rows show where holes line up right now — where a marble could cross.'],
     ['A slightly darker well is a shelter. With a target chosen, a red ring marks a marble that is not where the pattern wants it.'],
     ['Undo walks back one move. The replay code under the board is the whole game: copy it to share, paste one in and press Load to replay it.'],
