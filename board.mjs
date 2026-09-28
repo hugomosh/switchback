@@ -40,7 +40,7 @@ export function boardElement(state, options = {}) {
   if (!showGates) wrap.classList.add('no-gates');
 
   if (onSlide) wrap.appendChild(sliderColumn(state, onSlide));
-  wrap.appendChild(tray(state, { showGates, showShelters, wrongCells }));
+  wrap.appendChild(tray(state, { showGates, showShelters, wrongCells, onSlide }));
   return wrap;
 }
 
@@ -59,7 +59,7 @@ function sliderColumn(state, onSlide) {
   return column;
 }
 
-function tray(state, { showGates, showShelters, wrongCells }) {
+function tray(state, { showGates, showShelters, wrongCells, onSlide }) {
   const { board } = state;
   const width = columnCount(board);
   // The bar is a long strip that overhangs the tray at both ends, as the real
@@ -73,6 +73,13 @@ function tray(state, { showGates, showShelters, wrongCells }) {
   for (let row = 0; row < board.rows; row++) {
     const rowEl = div('row');
     rowEl.style.width = `calc(${width} * var(--col))`;
+    if (onSlide) {
+      // The row itself is a slider too: click anywhere along it, as you would
+      // push the real bar. The numbered buttons stay for keyboard users.
+      rowEl.classList.add('slidable');
+      rowEl.title = `Slide row ${row + 1}`;
+      rowEl.addEventListener('click', () => onSlide(row));
+    }
 
     const frame = div('frame');
     frame.style.gridTemplateColumns = `repeat(${width}, var(--col))`;

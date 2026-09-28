@@ -32,6 +32,7 @@ import {
   app, board, commit, note, undo, canUndo, moveCount, lastMove, resetTo, replayCode, load, update,
 } from './store.mjs';
 import { compare, patternByNumber } from './patterns.mjs';
+import { howTo } from './howto.mjs';
 import {
   createWorld, cloneWorld, step, trySlide, holdBar, releaseBar, toState, atRest, jammedRows, tiltAlong,
 } from './freeplay.mjs';
@@ -963,7 +964,7 @@ export function render(rerender) {
     stage.appendChild(el('p', 'note', hasWebGL()
       ? 'Loading the 3D tray…'
       : 'This browser has no WebGL, so the 3D tray cannot be drawn. The controls below still play the game.'));
-    root.append(stage, panel);
+    root.append(howTo('3d'), stage, panel);
     if (typeof window !== 'undefined') window.addEventListener('blur', () => ui.keys.clear());
   }
   if (ui.mode === 'strict') syncStrict();

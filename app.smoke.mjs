@@ -35,6 +35,10 @@ await import('./app.mjs');
 assert.equal($$('nav button').length, 6, 'six routes in the nav');
 assert.equal($('nav button[aria-current="page"]').textContent, 'Play', 'play is the default route');
 assert.equal($$('.row').length, 8);
+assert.ok($('.view .howto summary'), 'the play tab explains the rules');
+assert.equal($$('.howto-fig').length, 3, 'with the three line-up diagrams');
+assert.deepEqual($$('.howto-fig').map((f) => f.querySelectorAll('.hg.open').length), [0, 4, 3],
+  'drawn from the engine: none, four, then three holes line up');
 assert.equal($$('.hole').length, 32);
 assert.equal($$('.marble.m1').length, 12);
 assert.equal($$('.marble.m2').length, 12);
@@ -55,6 +59,14 @@ for (const bar of $$('.tray .bar')) {
 }
 const gatesDrawn = () => $$('.gates').map((g) => [...g.children].filter((c) => c.firstChild).length);
 assert.deepEqual(gatesDrawn(), [0, 0, 0, 0, 0, 0, 0], 'no channel is open with every slider at rest');
+
+// --- clicking a row slides it, like its button -----------------------------
+click($$('.tray .row')[4]);
+assert.equal(barOffsets()[4], columnOf(4, 0, 1) - LEAD, 'clicking row 5 slid its bar');
+click($$('.tray .row')[4]);
+assert.equal(barOffsets()[4], columnOf(4, 0, 0) - LEAD, 'and clicking again slides it back');
+assert.ok($('footer.credit a[href="https://github.com/hugomosh/switchback"]'), 'the footer links the repo');
+assert.match($('footer.credit').textContent, /Ira Friedman/, 'and credits the inventor');
 
 // --- moves and URL sync ----------------------------------------------------
 click($$('.slider-btn')[0]);
@@ -313,6 +325,7 @@ console.log('shelter and flush-row checks passed');
   assert.equal($('nav button[aria-current="page"]').textContent, '3D');
   assert.match($('.stage').textContent, /no WebGL/, 'the 3D tab explains why nothing is drawn');
   assert.equal($$('.rows3d button').length, 8, 'one slide button per bar');
+  assert.match($('.view3d .howto').textContent, /Strict[\s\S]*Free/, 'the 3D tab explains both modes');
   const tabButton = (label) => $$('.view3d button').find((b) => b.textContent === label);
   const { board } = await import('./store.mjs');
   const { tilt } = await import('./engine.mjs');

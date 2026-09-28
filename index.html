@@ -290,6 +290,47 @@
   .edge-proven { color: var(--proven-ink); font-weight: 600; }
   .edge-detail .minor button.strong { background: var(--tray); border-color: var(--tray); color: #fff; }
 
+  .row.slidable { cursor: pointer; }
+  .row.slidable:hover .bar { filter: brightness(0.96); }
+
+  /* ---- footer ---- */
+  .credit { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 8px;
+            font-size: 12px; color: var(--ink-soft); display: flex; flex-direction: column; gap: 6px; }
+  .credit p { margin: 0; }
+  .credit a { color: var(--ink); text-underline-offset: 2px; }
+  .credit .repo { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+  .credit svg { width: 15px; height: 15px; fill: currentColor; }
+
+  /* ---- how to play ---- */
+  .howto { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .howto summary { display: flex; align-items: baseline; gap: 10px; padding: 11px 14px; cursor: pointer;
+                   list-style: none; user-select: none; }
+  .howto summary::-webkit-details-marker { display: none; }
+  .howto summary::before { content: ''; width: 7px; height: 7px; flex: none; align-self: center;
+                           border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft);
+                           transform: rotate(-45deg); transition: transform .15s ease; margin-right: 2px; }
+  .howto[open] summary::before { transform: rotate(45deg); }
+  .howto-title { font-weight: 600; }
+  .howto-hint { font-size: 12px; color: var(--ink-soft); }
+  .howto-body { padding: 0 14px 12px; font-size: 14px; }
+  .howto-body p { margin: 0 0 8px; }
+  .howto-body h4 { margin: 12px 0 6px; font-size: 13px; font-weight: 600; }
+  .howto-body ul { margin: 0 0 4px; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+  .howto-body strong { font-weight: 600; }
+  .howto-figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 10px; }
+  .howto-fig { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .howto-fig figcaption { font-size: 11px; line-height: 1.35; color: var(--ink-soft); }
+  .howto-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 1px; padding: 4px;
+                border-radius: 6px; background: var(--tray); }
+  .howto-grid i { aspect-ratio: 1; display: grid; place-items: center; }
+  .howto-grid .hb { background: var(--bar); border-radius: 2px; }
+  .howto-grid .hw { background: var(--well); border-radius: 2px; }
+  .howto-grid .hg { aspect-ratio: auto; height: 5px; }
+  .howto-grid .hg.open { background: var(--gate); border-radius: 2px; margin: 0 30%; }
+  .howto-grid .hm { width: 70%; height: 70%; border-radius: 50%; background: var(--marble-1); opacity: .45; }
+  .howto-grid .hm.go { opacity: 1; }
+  @media (max-width: 420px) { .howto-figs { grid-template-columns: 1fr 1fr; } }
+
   /* ---- header and appearance menu ---- */
   .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .theme-menu { position: relative; }
@@ -396,6 +437,12 @@
     </header>
     <nav id="nav"></nav>
     <main id="view"></main>
+    <footer class="credit">
+      <p>Switchback was invented by <strong>Ira Friedman</strong> and published by Binary Arts Corporation
+        (#6400, 1993). This is an independent recreation for study — the puzzle design is theirs.</p>
+      <p><a class="repo" href="https://github.com/hugomosh/switchback" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.83-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>Source on GitHub</a>
+        — the engine, the solver and the proofs are all there.</p>
+    </footer>
   </div>
   <script type="module" src="./app.mjs"></script>
 </body>

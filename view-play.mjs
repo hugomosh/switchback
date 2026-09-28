@@ -7,6 +7,7 @@ import { resolve, slide, stateKey, census, provisionalStart } from './engine.mjs
 import { boardElement } from './board.mjs';
 import { app, board, moveCount, lastMove, canUndo, commit, undo, note, resetTo, replayCode, load, update } from './store.mjs';
 import { compare } from './patterns.mjs';
+import { howTo } from './howto.mjs';
 
 let armed = false;   // the reset button is waiting for confirmation
 
@@ -55,8 +56,8 @@ function columnWidth() {
 }
 
 function play(element, from, duration) {
-  if (!element || !element.animate) return;
-  element.animate([{ transform: from }, { transform: 'none' }], { duration, easing: EASE });
+  if (!element || !element.animate) return null;
+  return element.animate([{ transform: from }, { transform: 'none' }], { duration, easing: EASE });
 }
 
 /** Each marble drifts from the row it left to the centre of the well it landed in. */
@@ -67,8 +68,17 @@ function animateTilt(moved, slots) {
   for (const { from, to } of moved) {
     const dy = (Math.floor(from / slots) - Math.floor(to / slots)) * pitch;
     if (!dy) continue;
-    play(document.querySelector(`.tray .hole[data-cell="${to}"] > .marble`),
-      `translateY(${dy}px)`, 320);
+    const marble = document.querySelector(`.tray .hole[data-cell="${to}"] > .marble`);
+    const motion = play(marble, `translateY(${dy}px)`, 320);
+    // Each row's bar paints over the rows above it. A marble rising starts
+    // inside a lower row, so its own bar has to sit on top while it travels,
+    // or it looks as if it climbs out from under the hole it left.
+    const bar = marble && marble.closest('.bar');
+    if (motion && bar) {
+      bar.style.zIndex = '1';
+      const done = () => { bar.style.zIndex = ''; };
+      if (motion.finished) motion.finished.then(done, done); else done();
+    }
   }
 }
 
@@ -106,6 +116,7 @@ function doSlide(row) {
 export function render() {
   const view = el('div', 'view');
   const current = board();
+  view.appendChild(howTo('play'));
 
   const match = app.target ? compare(current, app.target.state) : null;
 
